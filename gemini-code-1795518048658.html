@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 太陽系與中央世界奇觀都市 - DAPTOPER 決戰挑戰版</title>
+    <style>
+        :root {
+            --primary-bg: rgba(15, 23, 42, 0.95);
+            --text-main: #f8fafc;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; background-color: #000;
+            touch-action: manipulation;
+        }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        #sidebar {
+            position: absolute; top: 0; left: 0; width: 360px; height: 100%;
+            background: var(--primary-bg); color: var(--text-main);
+            z-index: 10; padding: 16px 20px; box-sizing: border-box;
+            transition: transform 0.3s ease, opacity 0.3s ease; display: flex; flex-direction: column;
+            backdrop-filter: blur(10px); border-right: 1px solid rgba(255,255,255,0.1);
+            overflow-y: auto;
+        }
+        #sidebar.collapsed { transform: translateX(-360px); }
+        #sidebar.battle-hidden, #toggle-btn.battle-hidden, #mystery-timer-box.battle-hidden {
+            display: none !important;
+        }
+        #toggle-btn {
+            position: fixed; top: 20px; left: 360px; width: 40px; height: 40px;
+            background: var(--accent); color: white; border: none; cursor: pointer;
+            border-radius: 0 8px 8px 0; font-size: 18px; display: flex;
+            align-items: center; justify-content: center; box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            transition: left 0.3s ease; z-index: 11;
+        }
+        #sidebar.collapsed + #toggle-btn { left: 0; }
+        h1 { font-size: 18px; margin-top: 0; margin-bottom: 10px; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.5); }
+        .audio-box { background: rgba(255,255,255,0.08); padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
+        .audio-control-row { display: flex; gap: 8px; margin-top: 6px; }
+        .audio-btn { background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; flex: 1; }
+        .change-music-btn { background: #8b5cf6; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; flex: 1; }
+        .progress-box { background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+        .progress-box h3 { margin: 0 0 6px 0; font-size: 14px; }
+        .task-box { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; cursor: pointer; transition: background 0.2s; }
+        .task-box:hover { background: rgba(59, 130, 246, 0.25); }
+        
+        .pc-guide-box {
+            background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-size: 11px; color: #a7f3d0;
+            line-height: 1.5;
+        }
+        .kbd {
+            background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 4px;
+            font-family: monospace; font-weight: bold; color: #fff;
+        }
+
+        .build-menu { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+        .build-btn {
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 6px 6px; border-radius: 6px; cursor: pointer;
+            transition: all 0.2s; flex: 1 1 30%; text-align: center; font-size: 11px;
+        }
+        .build-btn.active, .build-btn:hover { background: var(--accent); border-color: var(--accent); }
+        .build-btn.locked { opacity: 0.4; cursor: not-allowed; background: rgba(0,0,0,0.3); }
+        .modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            background: #1e293b; color: white; width: 90%; max-width: 560px;
+            border-radius: 12px; padding: 25px; z-index: 25; display: none;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85); opacity: 0; transition: all 0.3s ease;
+            max-height: 85vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.15);
+        }
+        .modal.active { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        .modal img { width: 100%; border-radius: 8px; margin: 15px 0; max-height: 220px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2); }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+        .quiz-btn, .reward-btn, .shop-buy-btn { background: #10b981; color: white; border: none; padding: 10px; width: 100%; border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+        .quiz-btn:hover, .reward-btn:hover, .shop-buy-btn:hover { background: #059669; }
+        .reward-btn:disabled, .shop-buy-btn:disabled { background: #64748b; cursor: not-allowed; }
+        .task-item, .shop-item { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .source-link { color: #93c5fd; text-decoration: none; font-size: 12px; display: block; margin-top: 10px; }
+        #tour-btn, #shop-open-btn, #dlc-btn, #plaza-btn { color: white; border: none; padding: 9px; border-radius: 6px; width: 100%; font-size: 12px; cursor: pointer; font-weight: bold; transition: background 0.2s; margin-top: 5px; }
+        #plaza-btn { background: #0ea5e9; }
+        #plaza-btn:hover { background: #0284c7; }
+        #shop-open-btn { background: #ec4899; }
+        #shop-open-btn:hover { background: #db2777; }
+        #tour-btn { background: #f59e0b; }
+        #tour-btn:hover { background: #d97706; }
+        #dlc-btn { background: #8b5cf6; }
+        #dlc-btn:hover { background: #7c3aed; }
+        
+        /* 右下角 15 分鐘神秘事件倒數計時器 */
+        #mystery-timer-box {
+            position: fixed; bottom: 20px; right: 20px; z-index: 15;
+            background: rgba(15, 23, 42, 0.92); color: #f8fafc;
+            border: 1.5px solid #3b82f6; border-radius: 12px;
+            padding: 12px 16px; box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            backdrop-filter: blur(8px); text-align: right; min-width: 230px;
+        }
+        #mystery-timer-title { font-size: 12px; color: #93c5fd; font-weight: bold; margin-bottom: 4px; }
+        #mystery-countdown { font-size: 22px; font-family: monospace; font-weight: bold; color: #f59e0b; letter-spacing: 1px; }
+        #mystery-status { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+        #fast-forward-btn {
+            margin-top: 6px; background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6;
+            color: #dbeafe; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+        }
+        #fast-forward-btn:hover { background: #3b82f6; color: white; }
+
+        /* ==========================================
+           Boss 決戰專屬 UI 介面 (電腦＋平板雙平台適配)
+           ========================================== */
+        #battle-hud {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 18; display: none;
+        }
+        #battle-hud.active { display: block; }
+
+        /* 上方雙方血量條面板 */
+        #battle-top-bars {
+            position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 780px;
+            background: rgba(15, 23, 42, 0.9); border: 1.5px solid rgba(96, 165, 250, 0.5);
+            border-radius: 14px; padding: 12px 18px; backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.75);
+        }
+        .hp-row { margin-bottom: 8px; }
+        .hp-row:last-child { margin-bottom: 0; }
+        .hp-label-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; font-weight: bold; margin-bottom: 4px; color: #f8fafc;
+        }
+        .hp-bar-bg {
+            width: 100%; height: 16px; background: rgba(255,255,255,0.12);
+            border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2);
+        }
+        #boss-hp-fill {
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, #dc2626, #f97316);
+            transition: width 0.25s ease;
+        }
+        #player-hp-fill {
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, #10b981, #38bdf8);
+            transition: width 0.25s ease;
+        }
+
+        /* 戰鬥狀態提示條 */
+        #battle-status-banner {
+            position: absolute; top: 126px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 41, 59, 0.9); color: #fde047;
+            border: 1px solid rgba(250, 204, 21, 0.5); border-radius: 20px;
+            padding: 6px 18px; font-size: 13px; font-weight: bold; white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        /* 下方五個攻擊與防禦招式按鈕列 (大按鈕設計，平板與電腦皆好按) */
+        #battle-skills-dock {
+            position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+            width: 95%; max-width: 820px; pointer-events: auto;
+        }
+        .skill-btn {
+            flex: 1 1 140px; max-width: 160px; min-height: 68px;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+            border: 2px solid #3b82f6; border-radius: 12px; color: white;
+            cursor: pointer; padding: 8px 10px; text-align: center;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.6); transition: transform 0.1s, border-color 0.2s, opacity 0.2s;
+            position: relative; overflow: hidden; user-select: none;
+        }
+        .skill-btn:hover:not(:disabled) { transform: translateY(-3px); border-color: #60a5fa; }
+        .skill-btn:active:not(:disabled) { transform: scale(0.96); }
+        .skill-btn:disabled { opacity: 0.45; cursor: not-allowed; border-color: #475569; }
+        .skill-title { font-size: 13px; font-weight: bold; display: block; margin-bottom: 3px; }
+        .skill-desc { font-size: 10px; color: #cbd5e1; display: block; }
+        .skill-cd-overlay {
+            position: absolute; bottom: 0; left: 0; height: 4px; width: 0%;
+            background: #f59e0b; transition: width 0.1s linear;
+        }
+
+        /* 戰鬥前操作說明彈窗 */
+        .guide-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0;
+        }
+        .guide-card {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; padding: 10px; font-size: 12px; line-height: 1.5;
+        }
+        .start-battle-btn {
+            background: linear-gradient(90deg, #2563eb, #7c3aed);
+            color: white; border: none; padding: 14px; width: 100%;
+            border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+            margin-top: 10px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5);
+        }
+        .start-battle-btn:hover { filter: brightness(1.1); }
+
+        /* 訊息提示佇列 Stack 容器 */
+        #toast-container {
+            position: absolute; top: 170px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; gap: 8px; z-index: 30; pointer-events: none;
+        }
+        .toast-msg {
+            background: rgba(15, 23, 42, 0.92); color: white; padding: 9px 20px;
+            border-radius: 20px; border: 1px solid rgba(255,255,255,0.25);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); font-size: 13px; text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* NPC 文字對話框 */
+        .speech-bubble {
+            position: absolute; background: rgba(255, 255, 255, 0.95); color: #0f172a;
+            padding: 5px 10px; border-radius: 10px; font-size: 11px; font-weight: bold;
+            pointer-events: none; white-space: nowrap; transform: translate(-50%, -100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1.5px solid #3b82f6;
+            z-index: 5; display: none;
+        }
+        .speech-bubble::after {
+            content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+            border-width: 6px 6px 0; border-style: solid; border-color: rgba(255, 255, 255, 0.95) transparent;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "gsap": "https://unpkg.com/gsap@3.12.5/index.js"
+        }
+    }
+    </script>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h1>🏙️ 中央奇觀都市與宇宙群島</h1>
+        
+        <div class="audio-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🎵 音樂選單：<b id="track-name" style="color:#60a5fa;">1. 星際跳躍 Chiptune</b></span>
+            </div>
+            <div class="audio-control-row">
+                <button id="audio-toggle" class="audio-btn">⏸ 暫停音樂</button>
+                <button id="change-music-btn" class="change-music-btn">🔀 切換音樂</button>
+            </div>
+        </div>
+
+        <div class="progress-box">
+            <h3>成就與積分</h3>
+            <p style="margin: 2px 0;">天體探索數：<span id="score-display">0</span> / <span id="total-planets">11</span></p>
+            <p style="margin: 2px 0;">任務進度：<span id="task-display">0</span> / 3</p>
+            <p style="margin: 2px 0; color: #f59e0b; font-weight: bold;">🪙 探索積分：<span id="points-display">0</span> pts</p>
+        </div>
+
+        <div class="task-box" id="open-task-modal-btn">
+            <h4 style="margin: 0 0 4px 0; color: #93c5fd; display:flex; justify-content:space-between;">
+                <span>🎯 太空任務大廳</span>
+                <span style="font-size:11px; text-decoration:underline;">點擊查看 ➔</span>
+            </h4>
+            <div id="active-task-desc">1. 請點擊地圖中的「寫實黑洞」。</div>
+        </div>
+
+        <div class="pc-guide-box">
+            <b>⌨️ 電腦與平板操作指南：</b><br>
+            • <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> / <span class="kbd">方向鍵</span>：太空自由飛行移動<br>
+            • <span class="kbd">Q</span> / <span class="kbd">E</span>：垂直升降 ｜ <span class="kbd">Shift</span>：超光速加速<br>
+            • 電腦左鍵／平板單指點擊互動；雙指或滾輪縮放<br>
+            • 數字鍵 <span class="kbd">1</span>~<span class="kbd">0</span> 切換工具 ｜ <span class="kbd">ESC</span> 關閉視窗
+        </div>
+
+        <h3 style="margin: 4px 0; font-size: 14px;">🛠️ 建造工坊（自由擴建都市）</h3>
+        <div class="build-menu">
+            <button class="build-btn active" data-tool="select" data-key="1">[1] 👆 探索</button>
+            <button class="build-btn" data-tool="tree" data-key="2">[2] 🌲 植物</button>
+            <button class="build-btn locked" data-tool="house" data-key="3" id="btn-house">[3] 🔒 大樓</button>
+            <button class="build-btn locked" data-tool="lamp" data-key="4" id="btn-lamp">[4] 🔒 路燈</button>
+            <button class="build-btn" data-tool="bench" data-key="5">[5] 🛋️ 長椅</button>
+            <button class="build-btn" data-tool="flag" data-key="6">[6] 🚩 旗幟</button>
+            <button class="build-btn" data-tool="flower" data-key="7">[7] 🌸 花圃</button>
+            <button class="build-btn locked" data-tool="barrier" data-key="8" id="btn-barrier">[8] 🔒 路障</button>
+            <button class="build-btn locked" data-tool="pylon" data-key="9" id="btn-pylon">[9] 🔒 燈塔</button>
+            <button class="build-btn locked" data-tool="bridge" id="btn-bridge">🌉 橋梁</button>
+            <button class="build-btn" data-tool="delete" data-key="0">[0] 🗑️ 移除</button>
+        </div>
+
+        <div style="margin-top: auto; padding-top: 8px;">
+            <button id="plaza-btn">🏛️ 飛往世界奇觀中央廣場</button>
+            <button id="shop-open-btn">🛒 星際探索道具商店</button>
+            <button id="dlc-btn">🚀 擴充更多星系（請先完成任務）</button>
+            <button id="tour-btn">🌌 開始全宇宙巡航導覽</button>
+        </div>
+    </div>
+    <button id="toggle-btn">◀</button>
+
+    <!-- 右下角 15 分鐘 DAPTOPER 有感筆電降臨倒數計時器 -->
+    <div id="mystery-timer-box">
+        <div id="mystery-timer-title">💻 DAPTOPER 有感筆電降臨倒數</div>
+        <div id="mystery-countdown">15:00</div>
+        <div id="mystery-status">滿 15 分鐘開啟中央廣場 Boss 挑戰</div>
+        <button id="fast-forward-btn" title="立即快轉至最後5秒測試">⏩ 測試快轉 (剩5秒)</button>
+    </div>
+
+    <!-- Boss 決戰模式 HUD (上方血量條 + 下方 5 個招式按鈕) -->
+    <div id="battle-hud">
+        <div id="battle-top-bars">
+            <div class="hp-row">
+                <div class="hp-label-row">
+                    <span style="color:#f87171;">💻 巨型 DAPTOPER（有感筆電）</span>
+                    <span id="boss-hp-text" style="color:#fca5a5;">1000 / 1000</span>
+                </div>
+                <div class="hp-bar-bg">
+                    <div id="boss-hp-fill"></div>
+                </div>
+            </div>
+            <div class="hp-row">
+                <div class="hp-label-row">
+                    <span style="color:#34d399;">🛡️ 太空探險家（我方血量） <span id="shield-tag" style="display:none; color:#38bdf8;">[護盾啟動中]</span></span>
+                    <span id="player-hp-text" style="color:#6ee7b7;">500 / 500</span>
+                </div>
+                <div class="hp-bar-bg">
+                    <div id="player-hp-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="battle-status-banner">⚔️ 決戰開始！使用下方 5 個招式擊敗有感筆電！</div>
+
+        <div id="battle-skills-dock">
+            <button class="skill-btn" id="skill-1" data-skill="1">
+                <span class="skill-title">[1] ⚡ 星際雷射砲</span>
+                <span class="skill-desc">造成 95 傷害 (CD 2秒)</span>
+                <div class="skill-cd-overlay" id="cd-1"></div>
+            </button>
+            <button class="skill-btn" id="skill-2" data-skill="2">
+                <span class="skill-title">[2] ☄️ 隕石召喚術</span>
+                <span class="skill-desc">造成 145 暴擊 (CD 4秒)</span>
+                <div class="skill-cd-overlay" id="cd-2"></div>
+            </button>
+            <button class="skill-btn" id="skill-3" data-skill="3">
+                <span class="skill-title">[3] 🛡️ 量子防護罩</span>
+                <span class="skill-desc">減傷 75% 持續 4秒</span>
+                <div class="skill-cd-overlay" id="cd-3"></div>
+            </button>
+            <button class="skill-btn" id="skill-4" data-skill="4">
+                <span class="skill-title">[4] 💚 奈米修復光</span>
+                <span class="skill-desc">回復 130 血量 (CD 5秒)</span>
+                <div class="skill-cd-overlay" id="cd-4"></div>
+            </button>
+            <button class="skill-btn" id="skill-5" data-skill="5" style="border-color:#f59e0b;">
+                <span class="skill-title">[5] 🌟 宇宙超新星</span>
+                <span class="skill-desc">造成 240 巨量傷害 (CD 7秒)</span>
+                <div class="skill-cd-overlay" id="cd-5"></div>
+            </button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div id="dialog-container" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:8;"></div>
+    <div id="toast-container"></div>
+
+    <!-- 戰鬥開始前操作說明彈窗 -->
+    <div id="battle-guide-modal" class="modal" style="border: 2px solid #3b82f6; max-width: 600px;">
+        <h2 style="color:#60a5fa; margin-top:0; text-align:center;">⚔️ 巨型 DAPTOPER（有感筆電）挑戰降臨！</h2>
+        <p style="font-size:13px; color:#e2e8f0; text-align:center; margin-bottom:10px;">
+            有感筆電已現身中央廣場！他擁有 <b>1000 點血量</b>，而你擁有 <b>500 點血量</b>。<br>
+            他會定期發動攻擊，請善用五種招式與護盾擊敗他！
+        </p>
+
+        <div class="guide-grid">
+            <div class="guide-card">
+                <b style="color:#38bdf8;">💻 電腦版操作方式：</b><br>
+                • 按鍵盤數字鍵 <span class="kbd">1</span> ~ <span class="kbd">5</span> 施放招式<br>
+                • 或直接用滑鼠左鍵點擊下方招式按鈕<br>
+                • 拖曳滑鼠可轉動視角觀察戰況
+            </div>
+            <div class="guide-card">
+                <b style="color:#34d399;">📱 平板／觸控操作方式：</b><br>
+                • 直接用手指點擊畫面下方的 5 個大型招式按鈕<br>
+                • 單指滑動旋轉視角、雙指縮放<br>
+                • 看到 Boss 蓄力時記得按「量子防護罩」！
+            </div>
+        </div>
+
+        <div style="background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.4); border-radius:8px; padding:10px; font-size:12px; color:#fde68a;">
+            <b>💡 致勝小秘訣：</b>Boss 每隔約 3 秒會發動一次技能攻擊（傷害約 55~85 點）。當血量低於一半時使用 <b>[4] 奈米修復光</b> 回血，並搭配 <b>[3] 量子防護罩</b> 減傷，就能輕鬆取勝！
+        </div>
+
+        <button class="start-battle-btn" id="confirm-start-battle-btn">🔥 我準備好了，開始挑戰！</button>
+    </div>
+
+    <!-- 戰鬥結算彈窗 -->
+    <div id="battle-result-modal" class="modal" style="text-align:center; border: 2px solid #10b981;">
+        <h2 id="battle-result-title" style="color:#34d399; margin-top:0;">🎉 挑戰勝利！</h2>
+        <p id="battle-result-desc" style="font-size:14px; color:#e2e8f0; line-height:1.6;"></p>
+        <button class="start-battle-btn" id="close-battle-result-btn">返回宇宙自由探索</button>
+    </div>
+
+    <!-- 星球詳情彈窗 Modal -->
+    <div id="info-modal" class="modal">
+        <button class="close-btn" onclick="closeModal('info-modal')">✖</button>
+        <h2 id="modal-title">星球名稱</h2>
+        <img id="modal-img" src="" alt="星球照片">
+        <p id="modal-desc">簡介</p>
+        <p id="modal-trivia" style="font-size: 13px; color: #cbd5e1;">💡 小知識：</p>
+        <a id="modal-source" class="source-link" href="#" target="_blank">🔗 參考資料來源 (NASA)</a>
+        
+        <hr style="border-color: rgba(255,255,255,0.2); margin: 15px 0;">
+        <div id="quiz-section">
+            <h3 style="margin-top:0;">❓ 隨機探索挑戰題</h3>
+            <p id="quiz-q"></p>
+            <div id="quiz-options"></div>
+        </div>
+    </div>
+
+    <!-- 任務大廳 Modal -->
+    <div id="task-modal" class="modal">
+        <button class="close-btn" onclick="closeModal('task-modal')">✖</button>
+        <h2 style="color:#60a5fa; margin-top:0;">📜 太空探索任務大廳</h2>
+        <p style="font-size:13px; color:#cbd5e1;">完成任務可獲得【探索積分】與【解鎖高級建造工具】！</p>
+        
+        <div id="task-list">
+            <div class="task-item">
+                <h4 style="margin:0 0 6px 0; color:#38bdf8;">任務 1：黑洞觀測行動</h4>
+                <p style="font-size:12px; margin:4px 0;"><b>目標：</b>在宇宙中尋找並點擊「寫實黑洞」。</p>
+                <p style="font-size:12px; margin:4px 0; color:#fbbf24;"><b>🎁 獎勵：</b>+150 探索積分 ＆ 解鎖【摩天大樓、路燈】建造權</p>
+                <button class="reward-btn" id="claim-task-1" disabled>尚未達成條件</button>
+            </div>
+            <div class="task-item">
+                <h4 style="margin:0 0 6px 0; color:#38bdf8;">任務 2：星際基地建設</h4>
+                <p style="font-size:12px; margin:4px 0;"><b>目標：</b>在任意城市島嶼或中央廣場上建造 1 個設施。</p>
+                <p style="font-size:12px; margin:4px 0; color:#fbbf24;"><b>🎁 獎勵：</b>+200 探索積分 ＆ 解鎖【橋梁、路障、燈塔】建造權</p>
+                <button class="reward-btn" id="claim-task-2" disabled>尚未達成條件</button>
+            </div>
+            <div class="task-item">
+                <h4 style="margin:0 0 6px 0; color:#38bdf8;">任務 3：全宇宙跨星系擴充計畫</h4>
+                <p style="font-size:12px; margin:4px 0;"><b>目標：</b>建立 1 座連接兩座島嶼的橋梁。</p>
+                <p style="font-size:12px; margin:4px 0; color:#fbbf24;"><b>🎁 獎勵：</b>+300 探索積分 ＆ 自動擴充半人馬座 α 星與織女星！</p>
+                <button class="reward-btn" id="claim-task-3" disabled>尚未達成條件</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商店 Modal -->
+    <div id="shop-modal" class="modal">
+        <button class="close-btn" onclick="closeModal('shop-modal')">✖</button>
+        <h2 style="color:#ec4899; margin-top:0;">🛒 星際道具精品商店</h2>
+        <p style="font-size:13px; color:#cbd5e1;">當前擁有積分：<b id="shop-points-display" style="color:#f59e0b;">0</b> pts</p>
+        
+        <div class="shop-item">
+            <h4 style="margin:0 0 4px 0; color:#f472b6;">👑 黃金領隊帽子裝飾</h4>
+            <p style="font-size:12px; margin:4px 0;">給島嶼隊長配戴高貴的閃耀金冠帽子。</p>
+            <button class="shop-buy-btn" id="buy-hat-btn">購買 (100 pts)</button>
+        </div>
+        <div class="shop-item">
+            <h4 style="margin:0 0 4px 0; color:#f472b6;">✨ 居民與寵物太空炫彩光環</h4>
+            <p style="font-size:12px; margin:4px 0;">為島上全體居民與貓狗配戴發光的星際光環。</p>
+            <button class="shop-buy-btn" id="buy-halo-btn">購買 (150 pts)</button>
+        </div>
+        <div class="shop-item">
+            <h4 style="margin:0 0 4px 0; color:#f472b6;">🎒 領隊太空推進噴氣包</h4>
+            <p style="font-size:12px; margin:4px 0;">領隊背部將裝備科幻噴氣背翅與粒子特效。</p>
+            <button class="shop-buy-btn" id="buy-jetpack-btn">購買 (200 pts)</button>
+        </div>
+        <div class="shop-item">
+            <h4 style="margin:0 0 4px 0; color:#f472b6;">🚩 隊長皇家金光旗幟</h4>
+            <p style="font-size:12px; margin:4px 0;">將隊長的隊旗升級為金色發光奢華版旗幟。</p>
+            <button class="shop-buy-btn" id="buy-goldflag-btn">購買 (250 pts)</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import gsap from 'gsap';
+
+        // ==========================================
+        // 1. Web Audio 太空背景音樂與戰鬥音效
+        // ==========================================
+        let audioCtx = null, isPlayingAudio = true, musicInterval = null;
+        let currentTrackIdx = 0;
+
+        const musicTracks = [
+            { name: "1. 星際跳躍 Chiptune", notes: [261.63, 329.63, 392.00, 523.25, 493.88, 392.00, 329.63, 293.66], speed: 180, wave: 'triangle' },
+            { name: "2. 深空極光 Cosmic Pad", notes: [174.61, 220.00, 261.63, 329.63, 293.66, 220.00], speed: 380, wave: 'sine' },
+            { name: "3. 銀河漫步 Electro", notes: [196.00, 246.94, 293.66, 369.99, 392.00, 369.99, 293.66, 246.94], speed: 220, wave: 'sawtooth' }
+        ];
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playSFX(type) {
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'build') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(850, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'bridge') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(580, now + 0.35);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now); osc.stop(now + 0.35);
+            } else if (type === 'delete') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(480, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.2);
+                gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'meteor') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(35, now + 0.6);
+                gain.gain.setValueAtTime(0.35, now); gain.gain.linearRampToValueAtTime(0.001, now + 0.6);
+                osc.start(now); osc.stop(now + 0.6);
+            } else if (type === 'mystery') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(554.37, now + 0.12);
+                osc.frequency.setValueAtTime(659.25, now + 0.24);
+                osc.frequency.setValueAtTime(880, now + 0.36);
+                gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now); osc.stop(now + 0.6);
+            } else if (type === 'laser') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(900, now);
+                osc.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+                gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now); osc.stop(now + 0.25);
+            } else if (type === 'heal') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(380, now);
+                osc.frequency.exponentialRampToValueAtTime(760, now + 0.35);
+                gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now); osc.stop(now + 0.35);
+            } else if (type === 'hit') {
+                osc.type = 'square'; osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(45, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+        }
+
+        function startMusicLoop() {
+            if (musicInterval) clearInterval(musicInterval);
+            const track = musicTracks[currentTrackIdx];
+            document.getElementById('track-name').innerText = track.name;
+            let step = 0;
+
+            musicInterval = setInterval(() => {
+                if (!isPlayingAudio || !audioCtx || audioCtx.state === 'suspended') return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = track.wave;
+                osc.frequency.setValueAtTime(track.notes[step % track.notes.length], audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (track.speed / 1000) * 0.9);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + (track.speed / 1000) * 0.9);
+                step++;
+            }, track.speed);
+        }
+
+        function autoStartMusic() {
+            initAudio(); startMusicLoop();
+            const resumeAudio = () => {
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                window.removeEventListener('pointerdown', resumeAudio);
+            };
+            window.addEventListener('pointerdown', resumeAudio);
+        }
+
+        document.getElementById('audio-toggle').addEventListener('click', () => {
+            initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!isPlayingAudio) {
+                isPlayingAudio = true;
+                document.getElementById('audio-toggle').innerText = '⏸ 暫停音樂';
+                document.getElementById('audio-toggle').style.background = '#ef4444';
+                startMusicLoop(); showToast("音樂已恢復播放");
+            } else {
+                isPlayingAudio = false;
+                document.getElementById('audio-toggle').innerText = '▶ 播放音樂';
+                document.getElementById('audio-toggle').style.background = '#10b981';
+                showToast("音樂已暫停");
+            }
+        });
+
+        document.getElementById('change-music-btn').addEventListener('click', () => {
+            currentTrackIdx = (currentTrackIdx + 1) % musicTracks.length;
+            startMusicLoop(); playSFX('build');
+            showToast(`已切換音樂：${musicTracks[currentTrackIdx].name}`);
+        });
+
+        autoStartMusic();
+
+        // ==========================================
+        // 2. 多題庫天體資料庫 (每顆星球 3 題，答案洗牌打亂)
+        // ==========================================
+        const solarData = [
+            { id: 'sun', name: '太陽 (Sun)', radius: 5.0, posOffset: {r: 85, a: 0.0, y: 8}, desc: '太陽是太陽系的中心恆星，表面擁有高達數千度的白熱化光球層與太陽耀斑。', trivia: '核心溫度高達 1,500 萬攝氏度。', img: 'https://upload.wikimedia.org/wikipedia/commons/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '太陽主要由哪兩種元素組成？', options: ['氧與氮', '氫與氦', '鐵與鎳'], ans: 1 },
+                { q: '太陽核心的溫度大約是多少？', options: ['1,500 萬度', '5,000 度', '100 萬度'], ans: 0 },
+                { q: '太陽的能量來源是什麼反應？', options: ['化學燃燒', '核分裂', '核融合'], ans: 2 }
+            ]},
+            { id: 'mercury', name: '水星 (Mercury)', radius: 1.5, posOffset: {r: 135, a: 0.6, y: 5}, desc: '水星表面呈灰褐色，佈滿密集的隕石坑撞擊遺跡，極度類似月球。', trivia: '水星幾乎沒有大氣層，日夜溫差高達 600°C。', img: 'https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '水星表面的主要地形特徵是什麼？', options: ['廣闊海洋', '茂密森林', '撞擊坑'], ans: 2 },
+                { q: '水星在太陽系中的位置是？', options: ['距離太陽最近', '體積最大', '距離太陽最遠'], ans: 0 },
+                { q: '水星日夜溫差極大的原因是？', options: ['距離黑洞太近', '幾乎沒有大氣層保溫', '自轉速度太快'], ans: 1 }
+            ]},
+            { id: 'venus', name: '金星 (Venus)', radius: 2.2, posOffset: {r: 185, a: 1.2, y: -10}, desc: '金星被極其濃厚的黃金色雲層包覆，強烈的溫室效應使其表面呈現熾熱黃褐色。', trivia: '金星自轉方向與多數行星相反（西升東落）。', img: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '金星表面高溫的主要原因為何？', options: ['距離太陽最近', '強烈溫室效應', '內部核反應'], ans: 1 },
+                { q: '在金星上看太陽是從哪個方向升起？', options: ['北方', '東方', '西方'], ans: 2 },
+                { q: '金星大氣層主要成分是什麼？', options: ['二氧化碳', '氧氣', '氫氣'], ans: 0 }
+            ]},
+            { id: 'earth', name: '地球 (Earth)', radius: 2.5, posOffset: {r: 235, a: 2.1, y: 12}, desc: '我們的家園，清晰可見北美洲與南美洲陸地、蔚藍海洋與漩渦狀大氣白雲。', trivia: '地球是唯一已知表面存在液態水海洋的行星。', img: 'https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '地球表面被水覆蓋的比例約為多少？', options: ['50%', '71%', '85%'], ans: 1 },
+                { q: '地球大氣層中含量最多的氣體是？', options: ['氧氣', '二氧化碳', '氮氣'], ans: 2 },
+                { q: '地球公轉太陽一圈需要多久？', options: ['約 365.25 天', '30 天', '100 天'], ans: 0 }
+            ]},
+            { id: 'moon', name: '月球 (Moon)', radius: 1.2, posOffset: {r: 265, a: 2.3, y: 16}, desc: '地球唯一的天然衛星，表面佈滿灰色撞擊坑與月海。', trivia: '月球繞地球公轉與自轉週期相同，因此總是同一面朝向地球。', img: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '月球是地球的什麼天體？', options: ['矮行星', '天然衛星', '彗星'], ans: 1 },
+                { q: '為什麼我們總是看到月球的同一面？', options: ['月球不會自轉', '潮汐鎖定（自轉與公轉週期相同）', '另一面是透明的'], ans: 1 },
+                { q: '月球上暗色平坦的區域稱為什麼？', options: ['月海', '深海溝', '火山湖'], ans: 0 }
+            ]},
+            { id: 'mars', name: '火星 (Mars)', radius: 1.9, posOffset: {r: 315, a: 3.1, y: -8}, desc: '表面富含氧化鐵呈現經典鐵鏽紅褐色，兩極有明顯的白雪狀極冠。', trivia: '擁有太陽系最大的火山「奧林帕斯山」。', img: 'https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '火星看起來呈紅色的原因是什麼？', options: ['大氣呈紅色', '表面為高溫岩漿', '地表富含氧化鐵'], ans: 2 },
+                { q: '太陽系已知最高的火山位於火星，它叫什麼？', options: ['富士山', '奧林帕斯山', '聖母峰'], ans: 1 },
+                { q: '火星有幾顆天然衛星？', options: ['2 顆', '0 顆', '12 顆'], ans: 0 }
+            ]},
+            { id: 'jupiter', name: '木星 (Jupiter)', radius: 4.2, posOffset: {r: 380, a: 4.0, y: 18}, desc: '氣態巨行星，表面有清晰平行排列的褐色/米色雲帶與著名的「大紅斑」風暴。', trivia: '木星的大紅斑是一個比地球還大的巨大氣旋。', img: 'https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '木星上的「大紅斑」本質是什麼？', options: ['固態火山山脈', '巨大風暴氣旋', '隕石撞擊坑'], ans: 1 },
+                { q: '木星屬於哪一種類型的行星？', options: ['岩石行星', '矮行星', '氣態巨行星'], ans: 2 },
+                { q: '木星在太陽系八大行星中體積排行第幾？', options: ['第一名（最大）', '第三名', '第五名'], ans: 0 }
+            ]},
+            { id: 'saturn', name: '土星 (Saturn)', radius: 3.5, posOffset: {r: 450, a: 4.8, y: -15}, desc: '具備傾斜且層次極為豐富的灰白色/沙金色多重星環與淡黃色行星本體。', trivia: '土星的平均密度低於水，能浮在水面上。', img: 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '土星環主要的構成物質為何？', options: ['純黃金碎塊', '高壓氣體', '冰晶與岩石'], ans: 2 },
+                { q: '如果宇宙中有足夠大的水池，土星會如何？', options: ['沉入水底', '浮在水面上', '瞬間溶解'], ans: 1 },
+                { q: '土星最大的衛星叫什麼名字？', options: ['泰坦（土衛六）', '月球', '火衛一'], ans: 0 }
+            ]},
+            { id: 'uranus', name: '天王星 (Uranus)', radius: 2.8, posOffset: {r: 520, a: 5.5, y: 22}, desc: '呈現極其光滑平整、近乎純淨的淡青天藍色，氣氛平靜而優雅。', trivia: '天王星是以近乎 98 度的傾角「躺著」自轉。', img: 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '天王星公轉與自轉最特殊的特徵是什麼？', options: ['沒有自轉運動', '傾斜角度極大躺著自轉', '公轉方向逆向'], ans: 1 },
+                { q: '天王星呈現淡青藍色的主要氣體成分是？', options: ['甲烷', '水蒸氣', '氮氣'], ans: 0 },
+                { q: '天王星屬於哪一類巨行星？', options: ['冰巨行星', '類地行星', '恆星'], ans: 0 }
+            ]},
+            { id: 'neptune', name: '海王星 (Neptune)', radius: 2.7, posOffset: {r: 590, a: 0.2, y: -25}, desc: '深邃美麗的寶藍色行星，表面帶有輕微的淡藍色雲霧紋理與超音速狂風帶。', trivia: '海王星上的風速可達每小時 2,100 公里。', img: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Neptune_-_Voyager_2_%2829777304284%29.png', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '海王星的大氣氣候特徵為何？', options: ['完全無風狀態', '恆定溫暖宜人', '擁有超音速狂風'], ans: 2 },
+                { q: '海王星是如何被人類發現的？', options: ['肉眼直接看到', '透過數學計算預測位置後觀測到', '太空船撞擊發現'], ans: 1 },
+                { q: '海王星距離太陽排行第幾？', options: ['第八遠（最遠行星）', '第五遠', '第二遠'], ans: 0 }
+            ]},
+            { id: 'blackhole', name: '寫實黑洞 (Black Hole)', radius: 3.2, posOffset: {r: 670, a: 1.8, y: 30}, desc: '還原照片級黑洞：中央為純黑事件視界，周圍繞著高溫熾熱的橙紅色弧形重力透鏡光環。', trivia: '光線在經過黑洞強大重力場時會發生嚴重彎曲。', img: 'https://upload.wikimedia.org/wikipedia/commons/4/4f/Black_Hole_in_galaxy_NGC_3842.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                { q: '黑洞周圍連光都無法逃脫的邊界稱為什麼？', options: ['太陽光暈', '事件視界 (Event Horizon)', '大紅斑'], ans: 1 },
+                { q: '黑洞周圍發光的橙紅色圓盤稱為什麼？', options: ['吸積盤', '小行星帶', '臭氧層'], ans: 0 },
+                { q: '光線經過黑洞附近會發生什麼現象？', options: ['完全靜止', '變成綠色', '重力透鏡彎曲效應'], ans: 2 }
+            ]}
+        ];
+
+        // ==========================================
+        // 3. Three.js 場景與電腦鍵盤飛行控制系統
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const dialogContainer = document.getElementById('dialog-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x010103);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 4500);
+        camera.position.set(0, 48, 85);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.08;
+        controls.zoomSpeed = 1.5; controls.minDistance = 15; controls.maxDistance = 1600;
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
+        };
+
+        let isBattleActive = false;
+
+        const keysPressed = {};
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            keysPressed[key] = true;
+            keysPressed[e.code] = true;
+
+            if (e.key === 'Escape' && !isBattleActive) {
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+            }
+
+            // 決戰模式中數字鍵 1~5 直接施放戰鬥招式
+            if (isBattleActive) {
+                if (['1', '2', '3', '4', '5'].includes(e.key)) {
+                    usePlayerSkill(Number(e.key));
+                }
+                return;
+            }
+
+            if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+                const targetBtn = document.querySelector(`.build-btn[data-key="${e.key}"]`);
+                if (targetBtn) targetBtn.click();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key.toLowerCase()] = false;
+            keysPressed[e.code] = false;
+        });
+
+        function updateKeyboardCameraMovement() {
+            if (document.querySelector('.modal.active') || isBattleActive) return;
+
+            const isBoosting = keysPressed['shift'] || keysPressed['ShiftLeft'] || keysPressed['ShiftRight'];
+            const moveSpeed = isBoosting ? 4.5 : 1.8;
+
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+
+            const right = new THREE.Vector3();
+            right.crossVectors(forward, camera.up).normalize();
+
+            const deltaMove = new THREE.Vector3();
+
+            if (keysPressed['w'] || keysPressed['ArrowUp']) deltaMove.add(forward);
+            if (keysPressed['s'] || keysPressed['ArrowDown']) deltaMove.sub(forward);
+            if (keysPressed['d'] || keysPressed['ArrowRight']) deltaMove.add(right);
+            if (keysPressed['a'] || keysPressed['ArrowLeft']) deltaMove.sub(right);
+            if (keysPressed['e'] || keysPressed[' ']) deltaMove.y += 1;
+            if (keysPressed['q'] || keysPressed['c']) deltaMove.y -= 1;
+
+            if (deltaMove.lengthSq() > 0) {
+                deltaMove.normalize().multiplyScalar(moveSpeed);
+                camera.position.add(deltaMove);
+                controls.target.add(deltaMove);
+            }
+        }
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xfffaed, 1.8);
+        dirLight.position.set(100, 180, -100); dirLight.castShadow = true; scene.add(dirLight);
+
+        // 背景星空
+        const starsGeo = new THREE.BufferGeometry();
+        const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.9, transparent: true, opacity: 0.9});
+        const starsPos = [];
+        for(let i=0; i<12000; i++) {
+            starsPos.push(THREE.MathUtils.randFloatSpread(2800), THREE.MathUtils.randFloatSpread(2800), THREE.MathUtils.randFloatSpread(2800));
+        }
+        starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starsPos, 3));
+        scene.add(new THREE.Points(starsGeo, starsMat));
+
+        // ==========================================
+        // 4. 動態星體紋理
+        // ==========================================
+        function generateReferencePhotoTexture(id) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            if (id.includes('sun') || id === 'alpha_centauri' || id === 'vega' || id === 'betelgeuse') {
+                const grad = ctx.createLinearGradient(0,0,1024,512);
+                if (id === 'vega') { grad.addColorStop(0, '#93c5fd'); grad.addColorStop(1, '#1e3a8a'); }
+                else if (id === 'betelgeuse') { grad.addColorStop(0, '#ef4444'); grad.addColorStop(1, '#7f1d1d'); }
+                else { grad.addColorStop(0, '#ffe57f'); grad.addColorStop(0.5, '#ff5722'); grad.addColorStop(1, '#d84315'); }
+                ctx.fillStyle = grad; ctx.fillRect(0,0,1024,512);
+            } else if (id === 'mercury' || id === 'moon') {
+                ctx.fillStyle = '#7a7a7a'; ctx.fillRect(0,0,1024,512); ctx.fillStyle = '#4a4a4a';
+                for(let i=0; i<300; i++) { ctx.beginPath(); ctx.arc(Math.random()*1024, Math.random()*512, Math.random()*8, 0, Math.PI*2); ctx.fill(); }
+            } else if (id === 'venus') {
+                const grad = ctx.createLinearGradient(0,0,1024,512);
+                grad.addColorStop(0, '#d48c28'); grad.addColorStop(0.5, '#f3b444'); grad.addColorStop(1, '#8f530d');
+                ctx.fillStyle = grad; ctx.fillRect(0,0,1024,512);
+            } else if (id === 'earth') {
+                ctx.fillStyle = '#154a96'; ctx.fillRect(0,0,1024,512); ctx.fillStyle = '#3a7d44';
+                ctx.beginPath(); ctx.arc(320, 180, 110, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#8d7b4c'; ctx.beginPath(); ctx.arc(380, 340, 80, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                for(let i=0; i<60; i++) { ctx.beginPath(); ctx.arc(Math.random()*1024, Math.random()*512, Math.random()*30, 0, Math.PI*2); ctx.fill(); }
+            } else if (id === 'mars') {
+                ctx.fillStyle = '#c05c2b'; ctx.fillRect(0,0,1024,512); ctx.fillStyle = '#7a3111'; ctx.fillRect(200, 240, 500, 40);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1024, 25); ctx.fillRect(0, 487, 1024, 25);
+            } else if (id === 'jupiter') {
+                for(let y=0; y<512; y+=16) { ctx.fillStyle = (y%32===0)? '#b27d4f' : '#8c593b'; ctx.fillRect(0, y, 1024, 16); }
+                ctx.fillStyle = '#b02a19'; ctx.beginPath(); ctx.ellipse(720, 320, 65, 35, 0, 0, Math.PI*2); ctx.fill();
+            } else if (id === 'saturn') {
+                for(let y=0; y<512; y+=8) { ctx.fillStyle = (y%16===0)? '#e3cbb0' : '#c4a685'; ctx.fillRect(0, y, 1024, 8); }
+            } else if (id === 'uranus') {
+                ctx.fillStyle = '#6ab8ee'; ctx.fillRect(0,0,1024,512);
+            } else if (id === 'neptune') {
+                ctx.fillStyle = '#214ec3'; ctx.fillRect(0,0,1024,512);
+            } else { ctx.fillStyle = '#666677'; ctx.fillRect(0,0,1024,512); }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createPhotoPlanet(data) {
+            const group = new THREE.Group();
+            if (data.id === 'blackhole') {
+                const holeGeo = new THREE.SphereGeometry(data.radius, 64, 64);
+                group.add(new THREE.Mesh(holeGeo, new THREE.MeshBasicMaterial({ color: 0x000000 })));
+
+                const diskGeo = new THREE.RingGeometry(data.radius * 1.1, data.radius * 3.8, 64);
+                const disk = new THREE.Mesh(diskGeo, new THREE.MeshBasicMaterial({ color: 0xff3300, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
+                disk.rotation.x = Math.PI / 2.1; group.userData.disk = disk; group.add(disk);
+
+                const haloGeo = new THREE.RingGeometry(data.radius * 1.05, data.radius * 3.0, 64);
+                const haloTop = new THREE.Mesh(haloGeo, new THREE.MeshBasicMaterial({ color: 0xff6600, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
+                haloTop.rotation.y = Math.PI / 4; group.add(haloTop);
+                return group;
+            }
+
+            const texture = generateReferencePhotoTexture(data.id);
+            const mainGeo = new THREE.SphereGeometry(data.radius, 64, 64);
+            
+            if(data.id.includes('sun') || data.id === 'alpha_centauri' || data.id === 'vega' || data.id === 'betelgeuse') {
+                group.add(new THREE.Mesh(mainGeo, new THREE.MeshBasicMaterial({ map: texture })));
+            } else {
+                const mesh = new THREE.Mesh(mainGeo, new THREE.MeshStandardMaterial({ map: texture, roughness: 0.5, metalness: 0.1 }));
+                mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh);
+
+                if (data.id === 'saturn') {
+                    const ringGeo = new THREE.RingGeometry(data.radius * 1.25, data.radius * 2.5, 64);
+                    const ring = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({ color: 0xd4c4ad, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+                    ring.rotation.x = Math.PI / 2.3; group.add(ring);
+                }
+            }
+            return group;
+        }
+
+        // ==========================================
+        // 5. 世界奇觀與多樣化精緻高樓大廈生成器
+        // ==========================================
+        function createTaipei101() {
+            const group = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(4.6, 4.0, 4.6), new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.4, roughness: 0.3 }));
+            base.position.y = 2.0; group.add(base);
+
+            const tierMat = new THREE.MeshStandardMaterial({ color: 0x14b8a6, metalness: 0.5, roughness: 0.2 });
+            const trimMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8 });
+            for (let i = 0; i < 8; i++) {
+                const y = 4.0 + i * 1.6;
+                const tier = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 1.85, 1.5, 4), tierMat);
+                tier.position.y = y + 0.75;
+                tier.rotation.y = Math.PI / 4;
+                group.add(tier);
+
+                const ring = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.2, 3.4), trimMat);
+                ring.position.y = y + 1.5;
+                group.add(ring);
+            }
+
+            const topBox = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 2.2), tierMat);
+            topBox.position.y = 17.5; group.add(topBox);
+
+            const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.45, 4.5, 8), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.9 }));
+            spire.position.y = 20.5; group.add(spire);
+            return group;
+        }
+
+        function createLeaningTowerOfPisa() {
+            const group = new THREE.Group();
+            const tiltPivot = new THREE.Group();
+            tiltPivot.rotation.z = -0.09;
+
+            const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f4, roughness: 0.4 });
+            const archMat = new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.6 });
+
+            for (let i = 0; i < 7; i++) {
+                const y = i * 1.6;
+                const r = 1.9 - i * 0.03;
+                const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1.5, 16), marbleMat);
+                col.position.y = y + 0.75;
+                tiltPivot.add(col);
+
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(r + 0.05, 0.12, 8, 20), archMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = y + 1.5;
+                tiltPivot.add(ring);
+            }
+
+            const belfry = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 1.8, 16), marbleMat);
+            belfry.position.y = 12.1;
+            tiltPivot.add(belfry);
+
+            group.add(tiltPivot);
+            return group;
+        }
+
+        function createPyramid() {
+            const group = new THREE.Group();
+            const sandMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85, flatShading: true });
+            const pyramid = new THREE.Mesh(new THREE.ConeGeometry(5.5, 6.8, 4), sandMat);
+            pyramid.position.y = 3.4;
+            pyramid.rotation.y = Math.PI / 4;
+            group.add(pyramid);
+
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.1, 4), new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 }));
+            cap.position.y = 6.26;
+            cap.rotation.y = Math.PI / 4;
+            group.add(cap);
+            return group;
+        }
+
+        function createEiffelTower() {
+            const group = new THREE.Group();
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x78350f, metalness: 0.7, roughness: 0.4 });
+
+            const legOffsets = [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]];
+            legOffsets.forEach(([ox, oz]) => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.65, 6.0, 0.65), ironMat);
+                leg.position.set(ox, 2.8, oz);
+                leg.lookAt(0, 12, 0);
+                group.add(leg);
+            });
+
+            const deck1 = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.45, 3.8), ironMat);
+            deck1.position.y = 5.2; group.add(deck1);
+
+            const midBody = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.6, 5.5, 4), ironMat);
+            midBody.position.y = 8.0; midBody.rotation.y = Math.PI / 4; group.add(midBody);
+
+            const deck2 = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.4, 2.1), ironMat);
+            deck2.position.y = 10.8; group.add(deck2);
+
+            const topSpire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.75, 6.5, 4), ironMat);
+            topSpire.position.y = 14.2; topSpire.rotation.y = Math.PI / 4; group.add(topSpire);
+
+            const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+            beacon.position.y = 17.6; group.add(beacon);
+            return group;
+        }
+
+        function createVariedBuilding(variantIdx) {
+            const house = new THREE.Group();
+            const v = variantIdx % 5;
+
+            if (v === 0) {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(4.6, 3.8, 4.6), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 }));
+                body.position.y = 1.9; house.add(body);
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(3.8, 2.5, 4), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+                roof.position.y = 5.0; roof.rotation.y = Math.PI / 4; house.add(roof);
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.6, 0.6), new THREE.MeshStandardMaterial({ color: 0x991b1b }));
+                chimney.position.set(1.2, 5.2, -0.8); house.add(chimney);
+                const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.0, 0.1), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                door.position.set(0, 1.0, 2.31); house.add(door);
+            } else if (v === 1) {
+                const tower = new THREE.Mesh(new THREE.BoxGeometry(4.2, 11.5, 4.2), new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.6, roughness: 0.2 }));
+                tower.position.y = 5.75; house.add(tower);
+                for (let fy = 2.0; fy <= 10.0; fy += 2.0) {
+                    const glassBand = new THREE.Mesh(new THREE.BoxGeometry(4.32, 0.9, 4.32), new THREE.MeshBasicMaterial({ color: 0x7dd3fc }));
+                    glassBand.position.y = fy; house.add(glassBand);
+                }
+                const helipad = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.15, 16), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+                helipad.position.y = 11.55; house.add(helipad);
+            } else if (v === 2) {
+                const leftT = new THREE.Mesh(new THREE.BoxGeometry(2.0, 9.5, 3.2), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.4 }));
+                leftT.position.set(-1.3, 4.75, 0);
+                const rightT = new THREE.Mesh(new THREE.BoxGeometry(2.0, 9.5, 3.2), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.4 }));
+                rightT.position.set(1.3, 4.75, 0);
+                const skybridge = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 1.8), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                skybridge.position.set(0, 6.5, 0);
+                house.add(leftT, rightT, skybridge);
+            } else if (v === 3) {
+                const baseCyl = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.0, 3.2, 16), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+                baseCyl.position.y = 1.6;
+                const dome = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5 }));
+                dome.position.y = 3.2;
+                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 2.5, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+                scope.position.set(0, 4.6, 1.2); scope.rotation.x = Math.PI / 4;
+                house.add(baseCyl, dome, scope);
+            } else {
+                const colors = [0x64748b, 0x94a3b8, 0xcbd5e1];
+                for (let s = 0; s < 3; s++) {
+                    const w = 4.8 - s * 1.1;
+                    const h = 2.6;
+                    const block = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshStandardMaterial({ color: colors[s] }));
+                    block.position.y = s * 2.6 + 1.3;
+                    const green = new THREE.Mesh(new THREE.BoxGeometry(w + 0.15, 0.25, w + 0.15), new THREE.MeshStandardMaterial({ color: 0x10b981 }));
+                    green.position.y = (s + 1) * 2.6;
+                    house.add(block, green);
+                }
+            }
+
+            return house;
+        }
+
+        // ==========================================
+        // 6. 中央廣場（無星球）與各星球城市島嶼建構
+        // ==========================================
+        const CITY_RADIUS = 32.0;
+        const CENTRAL_PLAZA_RADIUS = 46.0;
+
+        function createCentralPlazaIsland() {
+            const islandGroup = new THREE.Group();
+
+            const baseGeo = new THREE.CylinderGeometry(CENTRAL_PLAZA_RADIUS, CENTRAL_PLAZA_RADIUS * 0.88, 3.5, 12);
+            const baseMesh = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65, flatShading: true }));
+            baseMesh.position.y = 1.75; islandGroup.add(baseMesh);
+
+            const cliffMesh = new THREE.Mesh(new THREE.ConeGeometry(CENTRAL_PLAZA_RADIUS * 0.92, 18.0, 12), new THREE.MeshStandardMaterial({ color: 0x0f172a, flatShading: true }));
+            cliffMesh.position.y = -9.0; cliffMesh.rotation.x = Math.PI; islandGroup.add(cliffMesh);
+
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+            const road1 = new THREE.Mesh(new THREE.BoxGeometry(CENTRAL_PLAZA_RADIUS * 1.88, 0.12, 5.5), roadMat); road1.position.y = 3.56;
+            const road2 = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.12, CENTRAL_PLAZA_RADIUS * 1.88), roadMat); road2.position.y = 3.56;
+            const centerPlazaCircle = new THREE.Mesh(new THREE.CylinderGeometry(11.0, 11.0, 0.16, 32), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+            centerPlazaCircle.position.y = 3.58;
+            islandGroup.add(road1, road2, centerPlazaCircle);
+
+            const obstacles = [];
+
+            const landmarks = [
+                { fn: createTaipei101, x: 18, z: -18, r: 4.0 },
+                { fn: createEiffelTower, x: -18, z: -18, r: 4.0 },
+                { fn: createLeaningTowerOfPisa, x: 18, z: 18, r: 3.5 },
+                { fn: createPyramid, x: -18, z: 18, r: 5.8 }
+            ];
+
+            landmarks.forEach(lm => {
+                const obj = lm.fn();
+                obj.position.set(lm.x, 3.55, lm.z);
+                islandGroup.add(obj);
+                obstacles.push({ localX: lm.x, localZ: lm.z, radius: lm.r, type: 'landmark', mesh: obj });
+            });
+
+            const extraSkyscrapers = [
+                { x: 30, z: -8, v: 1 }, { x: 30, z: 8, v: 2 },
+                { x: -30, z: -8, v: 3 }, { x: -30, z: 8, v: 4 },
+                { x: -8, z: -30, v: 0 }, { x: 8, z: -30, v: 1 },
+                { x: -8, z: 30, v: 2 }, { x: 8, z: 30, v: 4 }
+            ];
+            extraSkyscrapers.forEach(b => {
+                const bldg = createVariedBuilding(b.v);
+                bldg.position.set(b.x, 3.55, b.z);
+                bldg.userData = { customBuild: true, type: 'house' };
+                bldg.traverse(c => { if(c.isMesh) c.userData = { customBuild: true }; });
+                islandGroup.add(bldg);
+                obstacles.push({ localX: b.x, localZ: b.z, radius: 3.8, type: 'house', mesh: bldg });
+            });
+
+            islandGroup.userData = {
+                type: 'island', isCentralPlaza: true, radius: CENTRAL_PLAZA_RADIUS, surfaceY: 3.55,
+                id: 'central_plaza',
+                data: {
+                    name: '世界奇觀中央廣場 (Central Plaza)',
+                    desc: '這座繁華的宇宙中央都市沒有星球遮擋，匯集了台北 101、埃菲爾鐵塔、比薩斜塔與大金字塔等世界奇觀，也是 DAPTOPER（有感筆電）降臨的聖地！',
+                    trivia: '遊玩滿 15 分鐘時，手持筆電的巨型 DAPTOPER 角色將會降臨在這座廣場正中央並開啟決戰挑戰！',
+                    img: 'https://upload.wikimedia.org/wikipedia/commons/e/e6/Taipei_101_from_Xiangshan_20140729.jpg',
+                    source: 'https://solarsystem.nasa.gov/',
+                    quizzes: [
+                        { q: '中央廣場中最高的竹節狀摩天大樓是哪一座？', options: ['比薩斜塔', '台北 101', '大金字塔'], ans: 1 },
+                        { q: '遊玩滿幾分鐘會有巨型 DAPTOPER（有感筆電）降臨中央廣場？', options: ['15 分鐘', '1 分鐘', '60 分鐘'], ans: 0 }
+                    ]
+                },
+                obstacles: obstacles, connectedBridges: []
+            };
+            return islandGroup;
+        }
+
+        function createCityIsland(index, data) {
+            const islandGroup = new THREE.Group();
+
+            const baseGeo = new THREE.CylinderGeometry(CITY_RADIUS, CITY_RADIUS * 0.85, 3.0, 10);
+            const baseMesh = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, flatShading: true }));
+            baseMesh.position.y = 1.5; islandGroup.add(baseMesh);
+
+            const cliffMesh = new THREE.Mesh(new THREE.ConeGeometry(CITY_RADIUS * 0.9, 14.0, 10), new THREE.MeshStandardMaterial({ color: 0x0f172a, flatShading: true }));
+            cliffMesh.position.y = -7.0; cliffMesh.rotation.x = Math.PI; islandGroup.add(cliffMesh);
+
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+            const road1 = new THREE.Mesh(new THREE.BoxGeometry(CITY_RADIUS * 1.85, 0.1, 4.0), roadMat); road1.position.y = 3.05;
+            const road2 = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.1, CITY_RADIUS * 1.85), roadMat); road2.position.y = 3.05;
+            islandGroup.add(road1, road2);
+
+            const obstacles = [];
+            
+            const presetBuildings = [
+                { x: 14, z: 14, v: index % 5 },
+                { x: -14, z: -14, v: (index + 2) % 5 },
+                { x: -14, z: 14, v: (index + 4) % 5 }
+            ];
+            presetBuildings.forEach(pos => {
+                const houseGroup = createVariedBuilding(pos.v);
+                houseGroup.position.set(pos.x, 3.05, pos.z);
+                houseGroup.userData = { customBuild: true, type: 'house' };
+                houseGroup.traverse(c => { if(c.isMesh) c.userData = { customBuild: true }; });
+                islandGroup.add(houseGroup);
+                obstacles.push({ localX: pos.x, localZ: pos.z, radius: 3.6, type: 'house', mesh: houseGroup });
+            });
+
+            const landmarkCreators = [createTaipei101, createLeaningTowerOfPisa, createPyramid, createEiffelTower];
+            const lmObj = landmarkCreators[index % landmarkCreators.length]();
+            lmObj.scale.setScalar(0.75);
+            lmObj.position.set(14, 3.05, -14);
+            islandGroup.add(lmObj);
+            obstacles.push({ localX: 14, localZ: -14, radius: 3.8, type: 'landmark', mesh: lmObj });
+
+            const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2.2, 9, 8), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+            tower.position.set(0, 7.5, 0); islandGroup.add(tower);
+            obstacles.push({ localX: 0, localZ: 0, radius: 2.8, type: 'tower' });
+
+            islandGroup.userData = { type: 'island', isCentralPlaza: false, radius: CITY_RADIUS, surfaceY: 3.05, id: data.id, data: data, obstacles: obstacles, connectedBridges: [] };
+            return islandGroup;
+        }
+
+        // ==========================================
+        // 7. 動態懸索橋梁
+        // ==========================================
+        const bridges = [];
+
+        function buildSuspensionBridge(islandA, islandB) {
+            playSFX('bridge');
+
+            const rA = islandA.userData.radius || CITY_RADIUS;
+            const rB = islandB.userData.radius || CITY_RADIUS;
+            const yA = islandA.userData.surfaceY || 3.05;
+            const yB = islandB.userData.surfaceY || 3.05;
+
+            const centerA = islandA.position.clone().add(new THREE.Vector3(0, yA, 0));
+            const centerB = islandB.position.clone().add(new THREE.Vector3(0, yB, 0));
+            
+            const dirVector = new THREE.Vector3().subVectors(centerB, centerA).normalize();
+            const edgePosA = centerA.clone().add(dirVector.clone().multiplyScalar(rA - 2.0));
+            const edgePosB = centerB.clone().sub(dirVector.clone().multiplyScalar(rB - 2.0));
+            const actualDistance = edgePosA.distanceTo(edgePosB);
+
+            const bridgeGroup = new THREE.Group();
+
+            const deckGeo = new THREE.PlaneGeometry(4.0, actualDistance, 1, 24);
+            deckGeo.rotateX(-Math.PI / 2);
+            const deckMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8, side: THREE.DoubleSide });
+            const deckMesh = new THREE.Mesh(deckGeo, deckMat);
+            bridgeGroup.add(deckMesh);
+
+            const railMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            const railLeft = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.8, actualDistance), railMat);
+            railLeft.position.set(-1.9, 0.45, 0);
+            const railRight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.8, actualDistance), railMat);
+            railRight.position.set(1.9, 0.45, 0);
+            bridgeGroup.add(railLeft, railRight);
+
+            const towerMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.5 });
+            [-actualDistance/2 + 0.5, actualDistance/2 - 0.5].forEach(zPos => {
+                const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 4.0, 8), towerMat);
+                p1.position.set(-1.9, 2.0, zPos);
+                const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 4.0, 8), towerMat);
+                p2.position.set(1.9, 2.0, zPos);
+                const cross = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.25, 0.25), towerMat);
+                cross.position.set(0, 3.8, zPos);
+                bridgeGroup.add(p1, p2, cross);
+            });
+
+            const midPoint = new THREE.Vector3().addVectors(edgePosA, edgePosB).multiplyScalar(0.5);
+            bridgeGroup.position.copy(midPoint);
+            bridgeGroup.lookAt(edgePosB);
+
+            bridgeGroup.userData = { 
+                customBuild: true, islandA, islandB, edgePosA, edgePosB, distance: actualDistance, 
+                deckGeo: deckGeo, initialVertices: deckGeo.attributes.position.clone() 
+            };
+            bridgeGroup.traverse(c => { if(c.isMesh) c.userData = { customBuild: true }; });
+            
+            scene.add(bridgeGroup);
+            bridges.push(bridgeGroup);
+            islandA.userData.connectedBridges.push(bridgeGroup);
+            islandB.userData.connectedBridges.push(bridgeGroup);
+
+            checkTaskCompletion('bridge');
+            showToast("橋梁建立完成！連通兩島邊緣");
+        }
+
+        // ==========================================
+        // 8. 動態繪製「DAPTOPER (有感筆電)」專屬上衣與表情貼圖
+        // ==========================================
+        function createDaptoperShirtTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.fillStyle = '#5eead4';
+            ctx.fillRect(88, 36, 80, 92);
+            ctx.strokeStyle = '#0f766e';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(88, 36, 80, 92);
+
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.arc(128, 76, 24, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fde68a';
+            ctx.beginPath();
+            ctx.arc(128, 80, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ea580c';
+            ctx.fillRect(114, 96, 28, 24);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 26px "Comic Sans MS", "Arial Narrow", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('DAPTOPER', 128, 165);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createDaptoperFaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#f3d2a2';
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.fillStyle = '#111827';
+            ctx.beginPath(); ctx.ellipse(92, 108, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(164, 108, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.arc(92, 85, 16, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+            ctx.beginPath(); ctx.arc(164, 85, 16, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(85, 168);
+            ctx.quadraticCurveTo(135, 195, 178, 152);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // ==========================================
+        // 9. Roblox 居民、貓貓、狗狗與「DAPTOPER 有感筆電」
+        // ==========================================
+        const speechList = [
+            "隊長！今天要去中央廣場看台北 101 嗎？",
+            "這座太空群島的建築越來越壯觀了！",
+            "那邊有埃菲爾鐵塔跟比薩斜塔耶！",
+            "剛才走過橋梁時感覺軟軟會彈動呢！",
+            "埃及大金字塔的黃金塔尖好閃亮～",
+            "聽說滿 15 分鐘 DAPTOPER（有感筆電）會降臨中央廣場發起挑戰！",
+            "大家緊跟隨隊長，保持隊形不要重疊囉！",
+            "記得多賺些探索積分，去商店買新套裝！",
+            "小心天上的燃燒隕石，隨時可能掉下來！",
+            "我們的貓貓和狗狗跑得好開心呀！"
+        ];
+        const catSpeechList = ["喵嗚～🐱", "喵喵！（搖尾巴）", "好喜歡太空散步喵～", "看到大金字塔了喵！"];
+        const dogSpeechList = ["汪汪！🐶", "汪！跟著隊長衝呀！", "好想咬飛碟汪～", "台北 101 好高汪！"];
+
+        function createRobloxNPC(roleType, customScale = 0.38) {
+            const group = new THREE.Group(); const s = customScale;
+            const headGeo = new THREE.BoxGeometry(1*s, 1*s, 1*s);
+            const torsoGeo = new THREE.BoxGeometry(2*s, 2*s, 1*s);
+            const armGeo = new THREE.BoxGeometry(1*s, 2*s, 1*s); armGeo.translate(0, -1*s, 0); 
+            const legGeo = new THREE.BoxGeometry(1*s, 2*s, 1*s); legGeo.translate(0, -1*s, 0);
+
+            if (roleType === 'mystery_laptop') {
+                const skinMat = new THREE.MeshStandardMaterial({ color: 0xf3d2a2 });
+                const faceMat = new THREE.MeshStandardMaterial({ map: createDaptoperFaceTexture() });
+                const headMaterials = [skinMat, skinMat, skinMat, skinMat, faceMat, skinMat];
+                const head = new THREE.Mesh(headGeo, headMaterials);
+                head.position.y = 4.5*s;
+
+                const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+                const shirtFrontMat = new THREE.MeshStandardMaterial({ map: createDaptoperShirtTexture() });
+                const torsoMaterials = [whiteMat, whiteMat, whiteMat, whiteMat, shirtFrontMat, whiteMat];
+                const torso = new THREE.Mesh(torsoGeo, torsoMaterials);
+                torso.position.y = 3*s;
+
+                const rightArm = new THREE.Mesh(armGeo, skinMat);
+                rightArm.position.set(-1.5*s, 4*s, 0);
+
+                const leftArm = new THREE.Group();
+                leftArm.position.set(1.5*s, 4*s, 0);
+                const crimsonArm = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({ color: 0x7f1d1d, metalness: 0.4 }));
+                leftArm.add(crimsonArm);
+                const shoulderArmor = new THREE.Mesh(new THREE.SphereGeometry(0.62*s, 12, 12), new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.85, roughness: 0.2 }));
+                shoulderArmor.position.set(0.1*s, -0.1*s, 0);
+                const ruby = new THREE.Mesh(new THREE.SphereGeometry(0.22*s, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                ruby.position.set(0.15*s, 0.48*s, 0);
+                const goldGauntlet = new THREE.Mesh(new THREE.BoxGeometry(1.12*s, 0.8*s, 1.12*s), new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8 }));
+                goldGauntlet.position.set(0, -1.25*s, 0);
+                const darkHand = new THREE.Mesh(new THREE.BoxGeometry(0.95*s, 0.55*s, 0.95*s), new THREE.MeshStandardMaterial({ color: 0x3f2312 }));
+                darkHand.position.set(0, -1.8*s, 0);
+                leftArm.add(shoulderArmor, ruby, goldGauntlet, darkHand);
+
+                const pantsMat = new THREE.MeshStandardMaterial({ color: 0x18181b });
+                const leftLeg = new THREE.Mesh(legGeo, pantsMat); leftLeg.position.set(-0.5*s, 2*s, 0);
+                const rightLeg = new THREE.Mesh(legGeo, pantsMat); rightLeg.position.set(0.5*s, 2*s, 0);
+
+                const shoeGeo = new THREE.BoxGeometry(1.06*s, 0.48*s, 1.25*s);
+                const shoeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+                const leftShoe = new THREE.Mesh(shoeGeo, shoeMat); leftShoe.position.set(-0.5*s, 0.24*s, 0.1*s);
+                const rightShoe = new THREE.Mesh(shoeGeo, shoeMat); rightShoe.position.set(0.5*s, 0.24*s, 0.1*s);
+
+                const hairMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.35 });
+                const hairBase = new THREE.Mesh(new THREE.BoxGeometry(1.12*s, 0.42*s, 1.12*s), hairMat);
+                hairBase.position.set(0, 5.05*s, -0.02*s);
+                group.add(hairBase);
+                const spikeOffsets = [
+                    [0, 5.45*s, 0, 0], [-0.32*s, 5.38*s, 0.15*s, 0.25], [0.32*s, 5.38*s, 0.15*s, -0.25],
+                    [-0.28*s, 5.35*s, -0.25*s, 0.2], [0.28*s, 5.35*s, -0.25*s, -0.2], [0, 5.35*s, 0.32*s, 0]
+                ];
+                spikeOffsets.forEach(([sx, sy, sz, rotZ]) => {
+                    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.24*s, 0.65*s, 4), hairMat);
+                    spike.position.set(sx, sy, sz);
+                    spike.rotation.z = rotZ;
+                    group.add(spike);
+                });
+
+                const earCupGeo = new THREE.CylinderGeometry(0.32*s, 0.32*s, 0.22*s, 16);
+                earCupGeo.rotateZ(Math.PI / 2);
+                const earGoldMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8 });
+                const earBlackMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+                const earL = new THREE.Mesh(earCupGeo, earGoldMat); earL.position.set(-0.56*s, 4.55*s, 0);
+                const earR = new THREE.Mesh(earCupGeo, earGoldMat); earR.position.set(0.56*s, 4.55*s, 0);
+                const padL = new THREE.Mesh(new THREE.CylinderGeometry(0.22*s, 0.22*s, 0.25*s, 16).rotateZ(Math.PI/2), earBlackMat);
+                padL.position.set(-0.58*s, 4.55*s, 0);
+                const padR = new THREE.Mesh(new THREE.CylinderGeometry(0.22*s, 0.22*s, 0.25*s, 16).rotateZ(Math.PI/2), earBlackMat);
+                padR.position.set(0.58*s, 4.55*s, 0);
+                group.add(earL, earR, padL, padR);
+
+                const scarfMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+                const scarfCollar = new THREE.Mesh(new THREE.BoxGeometry(1.35*s, 0.36*s, 1.25*s), scarfMat);
+                scarfCollar.position.set(0, 3.98*s, 0.04*s);
+                const scarfTailL = new THREE.Mesh(new THREE.BoxGeometry(0.34*s, 1.55*s, 0.16*s), scarfMat);
+                scarfTailL.position.set(-0.68*s, 3.15*s, 0.56*s);
+                const scarfTailR = new THREE.Mesh(new THREE.BoxGeometry(0.34*s, 1.55*s, 0.16*s), scarfMat);
+                scarfTailR.position.set(0.68*s, 3.15*s, 0.56*s);
+                group.add(scarfCollar, scarfTailL, scarfTailR);
+
+                const cape = new THREE.Mesh(new THREE.BoxGeometry(1.9*s, 2.3*s, 0.1*s), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+                cape.position.set(0, 2.8*s, -0.56*s);
+                cape.rotation.x = 0.08;
+                group.add(cape);
+
+                const laptopGroup = new THREE.Group();
+                const laptopBase = new THREE.Mesh(new THREE.BoxGeometry(1.65*s, 0.12*s, 1.1*s), new THREE.MeshStandardMaterial({color: 0x334155, metalness: 0.85}));
+                const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(1.65*s, 1.05*s, 0.08*s), new THREE.MeshStandardMaterial({color: 0x0f172a}));
+                laptopScreen.position.set(0, 0.5*s, -0.52*s);
+                laptopScreen.rotation.x = -0.22;
+                const screenGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.48*s, 0.9*s), new THREE.MeshBasicMaterial({color: 0x38bdf8, side: THREE.DoubleSide}));
+                screenGlow.position.set(0, 0.5*s, -0.47*s);
+                screenGlow.rotation.x = -0.22;
+                laptopGroup.add(laptopBase, laptopScreen, screenGlow);
+                laptopGroup.position.set(-0.9*s, 2.55*s, 1.1*s);
+                laptopGroup.rotation.y = 0.25;
+                group.add(laptopGroup);
+
+                rightArm.rotation.x = -0.75;
+
+                group.add(head, torso, leftArm, rightArm, leftLeg, rightLeg, leftShoe, rightShoe);
+
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.className = 'speech-bubble';
+                dialogContainer.appendChild(bubbleDiv);
+
+                group.userData = { leftArm, rightArm, leftLeg, rightLeg, head, roleType, bubbleDiv, scaleVal: s };
+                return group;
+            }
+
+            let headMat = new THREE.MeshStandardMaterial({
+                color: roleType==='leader'? 0xe74c3c : (roleType==='noob'? 0xf1c40f:0xd1a3a4)
+            });
+            let torsoMat = new THREE.MeshStandardMaterial({
+                color: roleType==='leader'? 0x9b59b6 : (roleType==='noob'? 0x0984e3:0x333333)
+            });
+            let legMat = new THREE.MeshStandardMaterial({
+                color: roleType==='leader'? 0x2c3e50 : (roleType==='noob'? 0x4cd137:0x111111)
+            });
+
+            const head = new THREE.Mesh(headGeo, headMat); head.position.y = 4.5*s;
+            const torso = new THREE.Mesh(torsoGeo, torsoMat); torso.position.y = 3*s;
+            const leftArm = new THREE.Mesh(armGeo, headMat); leftArm.position.set(-1.5*s, 4*s, 0);
+            const rightArm = new THREE.Mesh(armGeo, headMat); rightArm.position.set(1.5*s, 4*s, 0);
+            const leftLeg = new THREE.Mesh(legGeo, legMat); leftLeg.position.set(-0.5*s, 2*s, 0);
+            const rightLeg = new THREE.Mesh(legGeo, legMat); rightLeg.position.set(0.5*s, 2*s, 0);
+            group.add(head, torso, leftArm, rightArm, leftLeg, rightLeg);
+
+            if (roleType === 'leader') {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2), new THREE.MeshStandardMaterial({color: 0xf59e0b}));
+                pole.position.set(0.8, 2.6, 0);
+                const flag = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.05), new THREE.MeshStandardMaterial({color: 0xef4444}));
+                flag.position.set(1.25, 3.8, 0); group.userData.flagMesh = flag;
+                group.add(pole, flag);
+            }
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'speech-bubble';
+            dialogContainer.appendChild(bubbleDiv);
+
+            group.userData = { ...group.userData, leftArm, rightArm, leftLeg, rightLeg, head, roleType, bubbleDiv, scaleVal: s };
+            return group;
+        }
+
+        function createRobloxPet(petType) {
+            const group = new THREE.Group();
+            const isCat = petType === 'cat';
+            const mainColor = isCat ? 0xf97316 : 0xd97706;
+            const subColor = isCat ? 0xffffff : 0x78350f;
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: mainColor });
+            const subMat = new THREE.MeshStandardMaterial({ color: subColor });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.35, 0.7), bodyMat);
+            body.position.y = 0.35;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.4), bodyMat);
+            head.position.set(0, 0.52, 0.42);
+            group.add(head);
+
+            if (isCat) {
+                const earL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 4), subMat);
+                earL.position.set(-0.13, 0.77, 0.42);
+                const earR = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 4), subMat);
+                earR.position.set(0.13, 0.77, 0.42);
+                group.add(earL, earR);
+            } else {
+                const earL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.14), subMat);
+                earL.position.set(-0.23, 0.52, 0.42);
+                const earR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.14), subMat);
+                earR.position.set(0.23, 0.52, 0.42);
+                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.16), subMat);
+                snout.position.set(0, 0.44, 0.65);
+                group.add(earL, earR, snout);
+            }
+
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), subMat);
+            tail.position.set(0, 0.48, -0.45);
+            tail.rotation.x = isCat ? 0.6 : 0.4;
+            group.add(tail);
+
+            const legGeo = new THREE.BoxGeometry(0.12, 0.24, 0.12);
+            const fl = new THREE.Mesh(legGeo, subMat); fl.position.set(-0.14, 0.12, 0.22);
+            const fr = new THREE.Mesh(legGeo, subMat); fr.position.set(0.14, 0.12, 0.22);
+            const bl = new THREE.Mesh(legGeo, subMat); bl.position.set(-0.14, 0.12, -0.22);
+            const br = new THREE.Mesh(legGeo, subMat); br.position.set(0.14, 0.12, -0.22);
+            group.add(fl, fr, bl, br);
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'speech-bubble';
+            bubbleDiv.style.borderColor = isCat ? '#f97316' : '#eab308';
+            dialogContainer.appendChild(bubbleDiv);
+
+            group.userData = { fl, fr, bl, br, tail, roleType: petType, bubbleDiv };
+            return group;
+        }
+
+        const npcs = []; const islands = []; const planets = [];
+        let completedQuizzes = 0; let totalUserPoints = 0;
+        const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
+        let currentTool = 'select'; let bridgeStartIsland = null;
+
+        const centralPlazaIsland = createCentralPlazaIsland();
+        centralPlazaIsland.position.set(0, 0, 0);
+        scene.add(centralPlazaIsland);
+        islands.push(centralPlazaIsland);
+        spawnLeaderAndTeam(centralPlazaIsland);
+        spawnLeaderAndTeam(centralPlazaIsland);
+        spawnLeaderAndTeam(centralPlazaIsland);
+
+        solarData.forEach((data, index) => {
+            const x = Math.cos(data.posOffset.a) * data.posOffset.r;
+            const z = Math.sin(data.posOffset.a) * data.posOffset.r;
+            const y = data.posOffset.y;
+
+            const island = createCityIsland(index, data);
+            island.position.set(x, y, z); scene.add(island); islands.push(island);
+
+            const planetGroup = createPhotoPlanet(data);
+            const planetOffsetY = 26 + data.radius;
+            planetGroup.position.set(x, y + planetOffsetY, z);
+            planetGroup.userData = { type: 'planet', id: data.id, data: data, baseOffsetY: planetOffsetY };
+            scene.add(planetGroup); planets.push(planetGroup);
+
+            spawnLeaderAndTeam(island); spawnLeaderAndTeam(island);
+        });
+
+        function spawnLeaderAndTeam(island) {
+            const rMax = (island.userData.radius || CITY_RADIUS) - 6.0;
+            const surfY = island.userData.surfaceY || 3.05;
+
+            const leaderMesh = createRobloxNPC('leader');
+            const leaderPos = getValidLocalPoint(island, rMax, surfY);
+            leaderMesh.position.copy(leaderPos);
+            island.add(leaderMesh);
+
+            const leaderObj = {
+                mesh: leaderMesh, parts: leaderMesh.userData, currentIsland: island,
+                targetLocal: leaderPos.clone(), speed: 0.04, actionState: 'walk',
+                role: 'leader', isPet: false
+            };
+            npcs.push(leaderObj);
+
+            for(let n=0; n<3; n++) {
+                const followerMesh = createRobloxNPC(n%2===0?'noob':'bacon');
+                const angleOffset = (n + 1) * (Math.PI * 0.5);
+                followerMesh.position.set(
+                    leaderPos.x + Math.cos(angleOffset) * 2.2,
+                    surfY,
+                    leaderPos.z + Math.sin(angleOffset) * 2.2
+                );
+                island.add(followerMesh);
+
+                npcs.push({
+                    mesh: followerMesh, parts: followerMesh.userData, currentIsland: island,
+                    targetLocal: leaderPos.clone(), speed: 0.038, actionState: 'follow',
+                    leader: leaderObj, role: 'follower', isPet: false, slotIndex: n
+                });
+            }
+
+            ['cat', 'dog'].forEach((petType, pIdx) => {
+                const petMesh = createRobloxPet(petType);
+                petMesh.position.set(
+                    leaderPos.x + (pIdx === 0 ? 1.8 : -1.8),
+                    surfY,
+                    leaderPos.z - 2.0
+                );
+                island.add(petMesh);
+
+                npcs.push({
+                    mesh: petMesh, parts: petMesh.userData, currentIsland: island,
+                    targetLocal: leaderPos.clone(), speed: 0.042, actionState: 'follow',
+                    leader: leaderObj, role: petType, isPet: true, slotIndex: pIdx + 3
+                });
+            });
+        }
+
+        function getValidLocalPoint(island, maxR = 24.0, surfY = 3.05) {
+            let valid = false, point = new THREE.Vector3();
+            let attempts = 0;
+            while (!valid && attempts < 45) {
+                attempts++;
+                const r = Math.random() * maxR;
+                const a = Math.random() * Math.PI * 2;
+                point.set(Math.cos(a)*r, surfY, Math.sin(a)*r);
+
+                let collide = false;
+                island.userData.obstacles.forEach(obs => {
+                    const dist = new THREE.Vector2(point.x - obs.localX, point.z - obs.localZ).length();
+                    if (dist < obs.radius + 0.8) collide = true;
+                });
+                if (!collide) valid = true;
+            }
+            return point;
+        }
+
+        // ==========================================
+        // 10. 15 分鐘倒數 ＋ 巨型 DAPTOPER（有感筆電）決戰挑戰系統
+        // ==========================================
+        let mysterySecondsLeft = 900;
+        let mysteryTriggered = false;
+        const mysteryCharacters = [];
+
+        // 戰鬥狀態變數
+        let bossHP = 1000, bossMaxHP = 1000;
+        let playerHP = 500, playerMaxHP = 500;
+        let playerShieldActive = false;
+        let bossAttackTimer = null;
+        const skillCooldowns = { 1: 2000, 2: 4000, 3: 6000, 4: 5000, 5: 7500 };
+        const skillReady = { 1: true, 2: true, 3: true, 4: true, 5: true };
+        const battleEffects = [];
+        let playerShieldMesh = null;
+
+        function updateMysteryCountdownUI() {
+            const mins = String(Math.floor(mysterySecondsLeft / 60)).padStart(2, '0');
+            const secs = String(mysterySecondsLeft % 60).padStart(2, '0');
+            document.getElementById('mystery-countdown').innerText = `${mins}:${secs}`;
+        }
+
+        const countdownTimer = setInterval(() => {
+            if (mysteryTriggered) return;
+            if (mysterySecondsLeft > 0) {
+                mysterySecondsLeft--;
+                updateMysteryCountdownUI();
+            }
+            if (mysterySecondsLeft <= 0 && !mysteryTriggered) {
+                triggerMysteryLaptopEvent();
+            }
+        }, 1000);
+
+        document.getElementById('fast-forward-btn').addEventListener('click', () => {
+            if (mysteryTriggered) {
+                showToast("巨型 DAPTOPER（有感筆電）已經降臨中央廣場囉！");
+                return;
+            }
+            mysterySecondsLeft = 5;
+            updateMysteryCountdownUI();
+            showToast("⏩ 已快轉時間！5 秒後巨型 DAPTOPER（有感筆電）將降臨中央廣場...");
+        });
+
+        function triggerMysteryLaptopEvent() {
+            mysteryTriggered = true;
+            clearInterval(countdownTimer);
+            playSFX('mystery');
+
+            // 關閉所有可能開著的彈窗與導覽
+            document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+            tourActive = false;
+
+            const giantDaptoper = createRobloxNPC('mystery_laptop', 2.5);
+            const surfY = centralPlazaIsland.userData.surfaceY;
+            giantDaptoper.position.set(0, surfY, 0);
+            centralPlazaIsland.add(giantDaptoper);
+
+            const ringGeo = new THREE.RingGeometry(4.5, 6.2, 48);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(0, surfY + 0.1, 0);
+            centralPlazaIsland.add(ring);
+
+            const beamGeo = new THREE.CylinderGeometry(3.8, 3.8, 75, 32, 1, true);
+            const beamMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.position.set(0, surfY + 37.5, 0);
+            centralPlazaIsland.add(beam);
+            gsap.to(beamMat, { opacity: 0, duration: 4.5, onComplete: () => centralPlazaIsland.remove(beam) });
+
+            giantDaptoper.userData.bubbleDiv.innerText = "💻 來吧！接下我的中央廣場挑戰！";
+            giantDaptoper.userData.bubbleDiv.style.display = 'block';
+            giantDaptoper.userData.bubbleDiv.style.borderColor = '#ef4444';
+            giantDaptoper.userData.bubbleDiv.style.fontSize = '13px';
+
+            mysteryCharacters.push({
+                mesh: giantDaptoper,
+                parts: giantDaptoper.userData,
+                ring: ring,
+                island: centralPlazaIsland
+            });
+
+            // 1. 自動將視角轉向中央廣場的巨型有感筆電
+            const plazaWorldPos = centralPlazaIsland.position.clone();
+            gsap.to(camera.position, {
+                x: plazaWorldPos.x,
+                y: plazaWorldPos.y + 22,
+                z: plazaWorldPos.z + 36,
+                duration: 1.8,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    // 2. 視角轉過去後，彈出戰鬥前操作說明視窗
+                    document.getElementById('battle-guide-modal').classList.add('active');
+                }
+            });
+            gsap.to(controls.target, {
+                x: plazaWorldPos.x,
+                y: plazaWorldPos.y + 10,
+                z: plazaWorldPos.z,
+                duration: 1.8,
+                ease: "power2.inOut"
+            });
+        }
+
+        // 點擊「開始挑戰！」進入正式決戰
+        document.getElementById('confirm-start-battle-btn').addEventListener('click', () => {
+            document.getElementById('battle-guide-modal').classList.remove('active');
+            startBossBattle();
+        });
+
+        function startBossBattle() {
+            isBattleActive = true;
+            bossHP = 1000; bossMaxHP = 1000;
+            playerHP = 500; playerMaxHP = 500;
+            playerShieldActive = false;
+
+            // 自動隱藏旁邊的側邊欄、切換鈕與右下角倒數框
+            document.getElementById('sidebar').classList.add('battle-hidden');
+            document.getElementById('toggle-btn').classList.add('battle-hidden');
+            document.getElementById('mystery-timer-box').classList.add('battle-hidden');
+
+            // 顯示上方血量條與下方 5 個招式按鈕
+            document.getElementById('battle-hud').classList.add('active');
+            updateBattleHPUI();
+            setBattleBanner("⚔️ 決戰開始！使用下方 5 個招式擊敗有感筆電！");
+            playSFX('mystery');
+
+            // 啟動 Boss 定期攻擊循環（難度適中：每 3.2 秒出招一次）
+            if (bossAttackTimer) clearInterval(bossAttackTimer);
+            bossAttackTimer = setInterval(() => {
+                if (!isBattleActive) return;
+                executeBossAttack();
+            }, 3200);
+        }
+
+        function updateBattleHPUI() {
+            const bossPct = Math.max(0, (bossHP / bossMaxHP) * 100);
+            const playerPct = Math.max(0, (playerHP / playerMaxHP) * 100);
+            document.getElementById('boss-hp-fill').style.width = `${bossPct}%`;
+            document.getElementById('boss-hp-text').innerText = `${Math.max(0, bossHP)} / ${bossMaxHP}`;
+            document.getElementById('player-hp-fill').style.width = `${playerPct}%`;
+            document.getElementById('player-hp-text').innerText = `${Math.max(0, playerHP)} / ${playerMaxHP}`;
+        }
+
+        function setBattleBanner(text) {
+            document.getElementById('battle-status-banner').innerText = text;
+        }
+
+        // 玩家施放 5 種招式（支援滑鼠點擊、平板觸控、鍵盤 1~5）
+        document.querySelectorAll('.skill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const skillId = Number(btn.dataset.skill);
+                usePlayerSkill(skillId);
+            });
+        });
+
+        function usePlayerSkill(id) {
+            if (!isBattleActive || !skillReady[id]) return;
+
+            // 觸發冷卻條動畫
+            skillReady[id] = false;
+            const btn = document.getElementById(`skill-${id}`);
+            const cdBar = document.getElementById(`cd-${id}`);
+            btn.disabled = true;
+            cdBar.style.transition = 'none';
+            cdBar.style.width = '100%';
+            requestAnimationFrame(() => {
+                cdBar.style.transition = `width ${skillCooldowns[id]}ms linear`;
+                cdBar.style.width = '0%';
+            });
+            setTimeout(() => {
+                skillReady[id] = true;
+                btn.disabled = false;
+            }, skillCooldowns[id]);
+
+            const bossTargetPos = centralPlazaIsland.position.clone().add(new THREE.Vector3(0, 11, 0));
+            const playerOriginPos = camera.position.clone().add(new THREE.Vector3(0, -4, -6));
+
+            if (id === 1) {
+                // [1] 星際雷射砲
+                playSFX('laser');
+                spawnBeamEffect(playerOriginPos, bossTargetPos, 0x38bdf8, 0.35);
+                damageBoss(95, "⚡ 你發射【星際雷射砲】對有感筆電造成 95 點傷害！");
+            } else if (id === 2) {
+                // [2] 隕石召喚術
+                playSFX('meteor');
+                spawnExplosionRing(bossTargetPos, 0xf97316, 8);
+                damageBoss(145, "☄️ 你召喚【太空隕石】重擊有感筆電，造成 145 點暴擊傷害！");
+            } else if (id === 3) {
+                // [3] 量子防護罩
+                playSFX('build');
+                playerShieldActive = true;
+                document.getElementById('shield-tag').style.display = 'inline';
+                setBattleBanner("🛡️ 【量子防護罩】已開啟！4 秒內受到傷害大幅減少 75%！");
+
+                if (!playerShieldMesh) {
+                    playerShieldMesh = new THREE.Mesh(
+                        new THREE.SphereGeometry(5, 24, 24),
+                        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.25, wireframe: true })
+                    );
+                    scene.add(playerShieldMesh);
+                }
+                playerShieldMesh.visible = true;
+
+                setTimeout(() => {
+                    playerShieldActive = false;
+                    document.getElementById('shield-tag').style.display = 'none';
+                    if (playerShieldMesh) playerShieldMesh.visible = false;
+                }, 4000);
+            } else if (id === 4) {
+                // [4] 奈米修復光
+                playSFX('heal');
+                const healAmount = 130;
+                playerHP = Math.min(playerMaxHP, playerHP + healAmount);
+                updateBattleHPUI();
+                setBattleBanner(`💚 使用【奈米修復光】，回復了 ${healAmount} 點生命值！`);
+            } else if (id === 5) {
+                // [5] 宇宙超新星
+                playSFX('mystery');
+                spawnBeamEffect(playerOriginPos, bossTargetPos, 0xfacc15, 0.85);
+                spawnExplosionRing(bossTargetPos, 0xa855f7, 13);
+                damageBoss(240, "🌟 施放必殺技【宇宙超新星】！造成 240 點巨量傷害！");
+            }
+        }
+
+        function damageBoss(amount, msg) {
+            bossHP = Math.max(0, bossHP - amount);
+            updateBattleHPUI();
+            setBattleBanner(msg);
+
+            // Boss 受擊震動回饋
+            if (mysteryCharacters.length > 0) {
+                const mc = mysteryCharacters[0];
+                gsap.fromTo(mc.mesh.position, { x: -0.8 }, { x: 0, duration: 0.35, ease: "elastic.out(1, 0.3)" });
+                mc.parts.bubbleDiv.innerText = bossHP > 0 ? "💻 唔！這招有點威力，看我的反擊！" : "💻 系統過載...你贏了！";
+            }
+
+            if (bossHP <= 0) {
+                endBossBattle(true);
+            }
+        }
+
+        // 巨型 DAPTOPER（有感筆電）使出三種不同招式反擊（難度平衡：不會秒殺，有足夠反應空間）
+        function executeBossAttack() {
+            if (!isBattleActive || bossHP <= 0) return;
+
+            const bossMoves = [
+                { name: "💻 筆電數據衝擊波", dmg: 60, color: 0x3b82f6, quote: "💻 接招吧！【筆電數據衝擊波】！" },
+                { name: "⚔️ 紅寶石黃金戰甲重擊", dmg: 80, color: 0xef4444, quote: "⚔️ 黃金戰甲充能！【重擊光束】！" },
+                { name: "⚡ 藍屏程式干擾彈", dmg: 55, color: 0xa855f7, quote: "⚡ 系統當機警告！【程式干擾彈】！" }
+            ];
+            const move = bossMoves[Math.floor(Math.random() * bossMoves.length)];
+
+            const bossOrigin = centralPlazaIsland.position.clone().add(new THREE.Vector3(0, 11, 0));
+            const playerTarget = camera.position.clone().add(new THREE.Vector3(0, -2, -4));
+
+            playSFX('hit');
+            spawnBeamEffect(bossOrigin, playerTarget, move.color, 0.5);
+
+            if (mysteryCharacters.length > 0) {
+                mysteryCharacters[0].parts.bubbleDiv.innerText = move.quote;
+            }
+
+            let actualDmg = move.dmg;
+            if (playerShieldActive) {
+                actualDmg = Math.round(move.dmg * 0.25);
+                setBattleBanner(`🛡️ 護盾成功抵擋！有感筆電使出【${move.name}】，僅受到 ${actualDmg} 點傷害！`);
+            } else {
+                setBattleBanner(`💥 有感筆電使出【${move.name}】！你受到了 ${actualDmg} 點傷害！`);
+            }
+
+            playerHP = Math.max(0, playerHP - actualDmg);
+            updateBattleHPUI();
+
+            // 鏡頭輕微震動感
+            gsap.to(camera.position, {
+                y: camera.position.y + 0.8,
+                duration: 0.1,
+                yoyo: true,
+                repeat: 3
+            });
+
+            if (playerHP <= 0) {
+                endBossBattle(false);
+            }
+        }
+
+        function endBossBattle(isVictory) {
+            isBattleActive = false;
+            if (bossAttackTimer) clearInterval(bossAttackTimer);
+            if (playerShieldMesh) playerShieldMesh.visible = false;
+            document.getElementById('shield-tag').style.display = 'none';
+
+            // 隱藏戰鬥 HUD，恢復側邊欄與一般介面
+            document.getElementById('battle-hud').classList.remove('active');
+            document.getElementById('sidebar').classList.remove('battle-hidden');
+            document.getElementById('toggle-btn').classList.remove('battle-hidden');
+
+            const titleEl = document.getElementById('battle-result-title');
+            const descEl = document.getElementById('battle-result-desc');
+
+            if (isVictory) {
+                playSFX('mystery');
+                totalUserPoints += 2000;
+                updatePointsUI();
+                titleEl.innerText = "🏆 恭喜戰勝巨型 DAPTOPER（有感筆電）！";
+                titleEl.style.color = "#34d399";
+                descEl.innerHTML = "你成功擊敗了中央廣場的神秘守護者！<br>獲得豐厚戰利品：<b style='color:#f59e0b;'>+2000 探索積分</b>！<br>他將繼續留在中央廣場與大家一起守護宇宙都市。";
+                if (mysteryCharacters.length > 0) {
+                    mysteryCharacters[0].parts.bubbleDiv.innerText = "💻 太強了！歡迎隨時來中央廣場找我！";
+                }
+            } else {
+                playSFX('delete');
+                titleEl.innerText = "💫 挑戰惜敗，體力已耗盡！";
+                titleEl.style.color = "#f87171";
+                descEl.innerHTML = "有感筆電的攻勢十分猛烈！別氣餒，你依然獲得了 <b style='color:#f59e0b;'>+300 參加鼓勵積分</b>。<br>下次記得適時使用「量子防護罩」與「奈米修復光」喔！";
+                totalUserPoints += 300;
+                updatePointsUI();
+            }
+
+            document.getElementById('battle-result-modal').classList.add('active');
+        }
+
+        document.getElementById('close-battle-result-btn').addEventListener('click', () => {
+            document.getElementById('battle-result-modal').classList.remove('active');
+        });
+
+        // 戰鬥光束與爆炸光環特效
+        function spawnBeamEffect(startPos, endPos, colorHex, thickness = 0.4) {
+            const dist = startPos.distanceTo(endPos);
+            const geo = new THREE.CylinderGeometry(thickness, thickness, dist, 12);
+            geo.rotateX(Math.PI / 2);
+            const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+            const beam = new THREE.Mesh(geo, mat);
+            beam.position.copy(startPos).lerp(endPos, 0.5);
+            beam.lookAt(endPos);
+            scene.add(beam);
+            battleEffects.push({ mesh: beam, life: 1.0, grow: false });
+        }
+
+        function spawnExplosionRing(pos, colorHex, maxScale = 8) {
+            const geo = new THREE.RingGeometry(0.6, 2.0, 32);
+            const mat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+            const ring = new THREE.Mesh(geo, mat);
+            ring.position.copy(pos);
+            ring.rotation.x = -Math.PI / 2;
+            scene.add(ring);
+            battleEffects.push({ mesh: ring, life: 1.0, grow: true, maxScale });
+        }
+
+        // ==========================================
+        // 11. 隨機宇宙事件：燃燒隕石隨機撞擊不同星球
+        // ==========================================
+        const activeMeteors = [];
+        const shockwaves = [];
+
+        function spawnRandomMeteor() {
+            if (planets.length === 0 || isBattleActive) return;
+            const targetIdx = Math.floor(Math.random() * planets.length);
+            const targetPlanet = planets[targetIdx];
+            const targetIsland = islands[targetIdx + 1];
+
+            const hitPlanet = Math.random() > 0.35;
+            const impactPoint = hitPlanet ? targetPlanet.position.clone() : targetIsland.position.clone().add(new THREE.Vector3(
+                THREE.MathUtils.randFloatSpread(18),
+                3.2,
+                THREE.MathUtils.randFloatSpread(18)
+            ));
+
+            const startOffset = new THREE.Vector3(
+                THREE.MathUtils.randFloat(-90, 90),
+                130,
+                THREE.MathUtils.randFloat(-90, 90)
+            );
+            const startPos = impactPoint.clone().add(startOffset);
+
+            const meteorGroup = new THREE.Group();
+            const rockGeo = new THREE.DodecahedronGeometry(1.7, 1);
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x7c2d12, emissive: 0xea580c, emissiveIntensity: 0.7, roughness: 0.8 });
+            const rockMesh = new THREE.Mesh(rockGeo, rockMat);
+            meteorGroup.add(rockMesh);
+
+            const tailGeo = new THREE.ConeGeometry(1.5, 9.0, 12);
+            tailGeo.rotateX(Math.PI / 2);
+            const tailMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.75 });
+            const tailMesh = new THREE.Mesh(tailGeo, tailMat);
+            tailMesh.position.z = -4.5;
+            meteorGroup.add(tailMesh);
+
+            meteorGroup.position.copy(startPos);
+            meteorGroup.lookAt(impactPoint);
+            scene.add(meteorGroup);
+
+            activeMeteors.push({
+                mesh: meteorGroup,
+                targetPos: impactPoint,
+                planetName: targetPlanet.userData.data.name,
+                speed: 2.3
+            });
+
+            showToast(`☄️ 宇宙警報！發現燃燒隕石正朝「${targetPlanet.userData.data.name}」墜落！`);
+        }
+
+        function createImpactShockwave(pos) {
+            playSFX('meteor');
+            const waveGeo = new THREE.RingGeometry(0.5, 2.2, 32);
+            const waveMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+            const waveMesh = new THREE.Mesh(waveGeo, waveMat);
+            waveMesh.position.copy(pos);
+            waveMesh.rotation.x = -Math.PI / 2;
+            scene.add(waveMesh);
+            shockwaves.push({ mesh: waveMesh, life: 1.0 });
+        }
+
+        setInterval(() => {
+            spawnRandomMeteor();
+        }, 25000);
+
+        // ==========================================
+        // 12. 漸進解鎖任務與大擴充商店
+        // ==========================================
+        let unlockedTools = { house: false, lamp: false, barrier: false, pylon: false, bridge: false };
+        let taskStatus = { task1: false, task2: false, task3: false };
+        let taskClaimed = { task1: false, task2: false, task3: false };
+        let tasksCompletedCount = 0;
+
+        function updatePointsUI() {
+            document.getElementById('points-display').innerText = totalUserPoints;
+            document.getElementById('shop-points-display').innerText = totalUserPoints;
+        }
+
+        function checkTaskCompletion(actionType) {
+            if (actionType === 'blackhole' && !taskStatus.task1) {
+                taskStatus.task1 = true;
+                document.getElementById('claim-task-1').disabled = false;
+                document.getElementById('claim-task-1').innerText = '🎁 領取 150 積分與解鎖建造權';
+                showToast("🎯 任務 1 達成！請領取獎勵！");
+            }
+            if (actionType === 'build' && !taskStatus.task2) {
+                taskStatus.task2 = true;
+                document.getElementById('claim-task-2').disabled = false;
+                document.getElementById('claim-task-2').innerText = '🎁 領取 200 積分與解鎖高級建造權';
+                showToast("🎯 任務 2 達成！請領取獎勵！");
+            }
+            if (actionType === 'bridge' && !taskStatus.task3) {
+                taskStatus.task3 = true;
+                document.getElementById('claim-task-3').disabled = false;
+                document.getElementById('claim-task-3').innerText = '🎁 領取 300 積分與擴充星系';
+                showToast("🎯 任務 3 達成！請領取擴充大獎！");
+            }
+        }
+
+        document.getElementById('claim-task-1').addEventListener('click', () => {
+            if(taskStatus.task1 && !taskClaimed.task1) {
+                taskClaimed.task1 = true; tasksCompletedCount++; totalUserPoints += 150;
+                unlockedTools.house = true; unlockedTools.lamp = true;
+                document.getElementById('btn-house').classList.remove('locked'); document.getElementById('btn-house').innerText = '[3] 🏢 大樓';
+                document.getElementById('btn-lamp').classList.remove('locked'); document.getElementById('btn-lamp').innerText = '[4] 💡 路燈';
+                document.getElementById('claim-task-1').innerText = '✅ 已領取'; document.getElementById('claim-task-1').disabled = true;
+                document.getElementById('task-display').innerText = tasksCompletedCount; updatePointsUI();
+                playSFX('build'); showToast("獲得 150 積分與【摩天大樓、路燈】建造權！");
+            }
+        });
+
+        document.getElementById('claim-task-2').addEventListener('click', () => {
+            if(taskStatus.task2 && !taskClaimed.task2) {
+                taskClaimed.task2 = true; tasksCompletedCount++; totalUserPoints += 200;
+                unlockedTools.bridge = true; unlockedTools.barrier = true; unlockedTools.pylon = true;
+                document.getElementById('btn-bridge').classList.remove('locked'); document.getElementById('btn-bridge').innerText = '🌉 橋梁';
+                document.getElementById('btn-barrier').classList.remove('locked'); document.getElementById('btn-barrier').innerText = '[8] 🚧 路障';
+                document.getElementById('btn-pylon').classList.remove('locked'); document.getElementById('btn-pylon').innerText = '[9] ⚡ 燈塔';
+                document.getElementById('claim-task-2').innerText = '✅ 已領取'; document.getElementById('claim-task-2').disabled = true;
+                document.getElementById('task-display').innerText = tasksCompletedCount; updatePointsUI();
+                playSFX('build'); showToast("獲得 200 積分與【橋梁、路障、燈塔】建造權！");
+            }
+        });
+
+        document.getElementById('claim-task-3').addEventListener('click', () => {
+            if(taskStatus.task3 && !taskClaimed.task3) {
+                taskClaimed.task3 = true; tasksCompletedCount++; totalUserPoints += 300;
+                document.getElementById('claim-task-3').innerText = '✅ 已領取大獎'; document.getElementById('claim-task-3').disabled = true;
+                document.getElementById('task-display').innerText = tasksCompletedCount; updatePointsUI();
+                playSFX('build'); showToast("🎉 獲得 300 積分並自動擴充星系！");
+                expandNewGalaxies();
+            }
+        });
+
+        function expandNewGalaxies() {
+            const extraPlanets = [
+                { id: 'alpha_centauri', name: '半人馬座 α 星', radius: 4.8, posOffset: {r: 310, a: 5.2, y: -35}, desc: '距離太陽系最近的恆星系統。', trivia: '包含比鄰星。', img: 'https://upload.wikimedia.org/wikipedia/commons/9/95/Alpha_Centauri_relative_sizes.svg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                    { q: '距離太陽系最近的恆星系統是？', options: ['獵戶座星雲', '半人馬座 α 星', '仙女座星系'], ans: 1 },
+                    { q: '半人馬座 α 星系統包含幾顆恆星？', options: ['1 顆', '3 顆（三合星）', '10 顆'], ans: 1 }
+                ]},
+                { id: 'vega', name: '織女星', radius: 4.5, posOffset: {r: 490, a: 2.8, y: 40}, desc: '天琴座最亮的青白色恆星。', trivia: '曾是北極星。', img: 'https://upload.wikimedia.org/wikipedia/commons/0/07/Vega_in_Spitzer.jpg', source: 'https://solarsystem.nasa.gov/', quizzes: [
+                    { q: '織女星的表面顏色呈現什麼色調？', options: ['深紅色', '金黃色', '青白色'], ans: 2 },
+                    { q: '織女星位於哪一個星座？', options: ['天琴座', '大熊座', '獅子座'], ans: 0 }
+                ]}
+            ];
+
+            extraPlanets.forEach((pData) => {
+                solarData.push(pData);
+                const x = Math.cos(pData.posOffset.a) * pData.posOffset.r;
+                const z = Math.sin(pData.posOffset.a) * pData.posOffset.r;
+                const y = pData.posOffset.y;
+
+                const island = createCityIsland(solarData.length-1, pData);
+                island.position.set(x, y, z); scene.add(island); islands.push(island);
+
+                const planetGroup = createPhotoPlanet(pData);
+                planetGroup.position.set(x, y + 26, z);
+                planetGroup.userData = { type: 'planet', id: pData.id, data: pData, baseOffsetY: 26 };
+                scene.add(planetGroup); planets.push(planetGroup);
+
+                spawnLeaderAndTeam(island); spawnLeaderAndTeam(island);
+            });
+
+            document.getElementById('total-planets').innerText = solarData.length;
+            document.getElementById('dlc-btn').innerText = '✅ 地圖擴充已完成'; document.getElementById('dlc-btn').disabled = true;
+        }
+
+        // 商店購買邏輯
+        document.getElementById('buy-hat-btn').addEventListener('click', () => {
+            if (totalUserPoints >= 100) {
+                totalUserPoints -= 100; updatePointsUI(); playSFX('build');
+                showToast("購買成功！已為領隊配戴黃金冠帽");
+                npcs.filter(n => n.role === 'leader').forEach(l => {
+                    const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 8), new THREE.MeshStandardMaterial({color: 0xf59e0b, metalness: 0.8}));
+                    hat.position.y = 2.4; l.mesh.add(hat);
+                });
+            } else { showToast("⚠️ 積分不足，請先完成任務！"); }
+        });
+
+        document.getElementById('buy-halo-btn').addEventListener('click', () => {
+            if (totalUserPoints >= 150) {
+                totalUserPoints -= 150; updatePointsUI(); playSFX('build');
+                showToast("購買成功！已為全體居民與寵物解鎖太空炫彩光環");
+                npcs.forEach(n => {
+                    const halo = new THREE.Mesh(new THREE.TorusGeometry(n.isPet ? 0.35 : 0.5, 0.06, 8, 16), new THREE.MeshBasicMaterial({color: 0x38bdf8}));
+                    halo.rotation.x = Math.PI / 2; halo.position.y = n.isPet ? 1.1 : 2.5; n.mesh.add(halo);
+                });
+            } else { showToast("⚠️ 積分不足，請先完成任務！"); }
+        });
+
+        document.getElementById('buy-jetpack-btn').addEventListener('click', () => {
+            if (totalUserPoints >= 200) {
+                totalUserPoints -= 200; updatePointsUI(); playSFX('build');
+                showToast("購買成功！已解鎖領隊太空推進噴氣包");
+                npcs.filter(n => n.role === 'leader').forEach(l => {
+                    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), new THREE.MeshStandardMaterial({color: 0xef4444}));
+                    pack.position.set(0, 1.2, -0.4); l.mesh.add(pack);
+                });
+            } else { showToast("⚠️ 積分不足，請先完成任務！"); }
+        });
+
+        document.getElementById('buy-goldflag-btn').addEventListener('click', () => {
+            if (totalUserPoints >= 250) {
+                totalUserPoints -= 250; updatePointsUI(); playSFX('build');
+                showToast("購買成功！已升級為皇家金光隊旗");
+                npcs.filter(n => n.role === 'leader').forEach(l => {
+                    if (l.parts.flagMesh) l.parts.flagMesh.material.color.setHex(0xf59e0b);
+                });
+            } else { showToast("⚠️ 積分不足，請先完成任務！"); }
+        });
+
+        // ==========================================
+        // 13. 建造工具點擊與完美一鍵整組刪除
+        // ==========================================
+        let buildCounter = 0;
+
+        document.querySelectorAll('.build-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const btnEl = e.currentTarget;
+                const tool = btnEl.dataset.tool;
+                if (btnEl.classList.contains('locked')) {
+                    showToast("🔒 該設施尚未解鎖！請先完成對應任務！");
+                    playSFX('delete'); return;
+                }
+                playSFX('build');
+                document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('active'));
+                btnEl.classList.add('active');
+                currentTool = tool; bridgeStartIsland = null;
+                showToast(`已切換模式：${btnEl.innerText}`);
+            });
+        });
+
+        window.addEventListener('pointerdown', (e) => {
+            if (isBattleActive) return;
+            if (e.button !== undefined && e.button !== 0) return;
+
+            if(e.clientX < 360 && !document.getElementById('sidebar').classList.contains('collapsed')) return;
+            if(document.querySelector('.modal.active')) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                let hitPoint = intersects[0].point;
+                let hitMesh = intersects[0].object;
+
+                let rootBuildObject = hitMesh;
+                while (rootBuildObject.parent && rootBuildObject.parent.type !== 'Scene') {
+                    if (rootBuildObject.userData.customBuild && rootBuildObject.parent.userData.type === 'island') break;
+                    if (rootBuildObject.userData.customBuild && rootBuildObject.parent.type === 'Scene') break;
+                    rootBuildObject = rootBuildObject.parent;
+                }
+
+                if (currentTool === 'delete' && rootBuildObject.userData.customBuild) {
+                    playSFX('delete');
+                    
+                    if (rootBuildObject.parent) rootBuildObject.parent.remove(rootBuildObject);
+
+                    islands.forEach(isl => {
+                        const idx = isl.userData.obstacles.findIndex(obs => obs.mesh === rootBuildObject);
+                        if (idx !== -1) isl.userData.obstacles.splice(idx, 1);
+                    });
+
+                    const bIdx = bridges.indexOf(rootBuildObject);
+                    if (bIdx !== -1) bridges.splice(bIdx, 1);
+
+                    showToast("整組設施已完全移除！");
+                    return;
+                }
+
+                let object = intersects[0].object;
+                while(object.parent && object.parent.type !== 'Scene') {
+                    if(object.userData.type) break;
+                    object = object.parent;
+                }
+
+                if (currentTool === 'select' && (object.userData.type === 'planet' || object.userData.type === 'island')) {
+                    const data = object.userData.data;
+                    openModal('info-modal', data);
+                    if (data && data.id === 'blackhole') checkTaskCompletion('blackhole');
+
+                    const targetPos = new THREE.Vector3(object.position.x, object.position.y + 18, object.position.z + 50);
+                    gsap.to(camera.position, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 1.5, ease: "power2.inOut" });
+                    gsap.to(controls.target, { x: object.position.x, y: object.position.y, z: object.position.z, duration: 1.5, ease: "power2.inOut" });
+                } 
+                else if (currentTool !== 'select' && currentTool !== 'bridge' && currentTool !== 'delete' && object.userData.type === 'island') {
+                    const localHit = object.worldToLocal(hitPoint.clone());
+                    buildObject(currentTool, localHit, object);
+                    checkTaskCompletion('build');
+                }
+                else if (currentTool === 'bridge' && object.userData.type === 'island') {
+                    if (!bridgeStartIsland) {
+                        bridgeStartIsland = object; playSFX('build'); showToast("已選取起點城市島嶼，請再點擊另一座島嶼");
+                    } else if (bridgeStartIsland !== object) {
+                        buildSuspensionBridge(bridgeStartIsland, object);
+                        bridgeStartIsland = null;
+                    }
+                }
+            }
+        });
+
+        function buildObject(type, localPos, island) {
+            let mesh = new THREE.Group();
+            let radius = 1.8;
+            const surfY = island.userData.surfaceY || 3.05;
+
+            if (type === 'tree') {
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 2.0, 6), new THREE.MeshStandardMaterial({color: 0x5c4033})); trunk.position.y = 1.0;
+                const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.5, 5), new THREE.MeshStandardMaterial({color: 0x10b981})); leaves.position.y = 3.2;
+                mesh.add(trunk, leaves); radius = 1.8;
+            } else if (type === 'house') {
+                mesh = createVariedBuilding(buildCounter++); radius = 3.6;
+            } else if (type === 'lamp') {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.5, 8), new THREE.MeshStandardMaterial({color: 0x334155})); pole.position.y = 1.75;
+                const light = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({color: 0xffea75})); light.position.y = 3.6;
+                mesh.add(pole, light); radius = 0.8;
+            } else if (type === 'bench') {
+                const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.7), new THREE.MeshStandardMaterial({color: 0x8b5a2b})); seat.position.y = 0.4;
+                const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 0.1), new THREE.MeshStandardMaterial({color: 0x8b5a2b})); back.position.set(0, 0.8, -0.3);
+                mesh.add(seat, back); radius = 1.2;
+            } else if (type === 'barrier') {
+                const b = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 0.6), new THREE.MeshStandardMaterial({color: 0xf59e0b})); b.position.y = 0.6;
+                mesh.add(b); radius = 2.6;
+            } else if (type === 'pylon') {
+                const p = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 5.0, 8), new THREE.MeshStandardMaterial({color: 0x3b82f6})); p.position.y = 2.5;
+                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshBasicMaterial({color: 0x60a5fa})); orb.position.y = 5.2;
+                mesh.add(p, orb); radius = 1.4;
+            } else if (type === 'flag') {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4.0, 8), new THREE.MeshStandardMaterial({color: 0x94a3b8})); pole.position.y = 2.0;
+                const flag = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.05), new THREE.MeshStandardMaterial({color: 0x3b82f6})); flag.position.set(0.6, 3.5, 0);
+                mesh.add(pole, flag); radius = 1.0;
+            } else if (type === 'flower') {
+                const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.6, 0.6, 8), new THREE.MeshStandardMaterial({color: 0x78350f})); pot.position.y = 0.3;
+                const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), new THREE.MeshStandardMaterial({color: 0xec4899})); bloom.position.y = 0.8;
+                mesh.add(pot, bloom); radius = 0.9;
+            }
+
+            mesh.position.set(localPos.x, surfY, localPos.z);
+            mesh.userData = { customBuild: true, type: type };
+            mesh.traverse(c => { if(c.isMesh) c.userData = { customBuild: true }; });
+            
+            island.add(mesh);
+            island.userData.obstacles.push({ localX: localPos.x, localZ: localPos.z, radius: radius, type: type, mesh: mesh });
+            
+            playSFX('build'); showToast("設施建造完成！");
+        }
+
+        // ==========================================
+        // 14. 訊息佇列 Stack 與問答選項洗牌系統
+        // ==========================================
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast-msg';
+            toast.innerText = msg;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+
+        const lastQuizIndexMap = {};
+
+        function openModal(id, data) {
+            if (id === 'info-modal' && data) {
+                document.getElementById('modal-title').innerText = data.name;
+                document.getElementById('modal-img').src = data.img;
+                document.getElementById('modal-desc').innerText = data.desc;
+                document.getElementById('modal-trivia').innerText = '💡 小知識：' + data.trivia;
+                document.getElementById('modal-source').href = data.source;
+
+                const quizList = data.quizzes || [data.quiz];
+                let qIdx = Math.floor(Math.random() * quizList.length);
+                if (quizList.length > 1 && lastQuizIndexMap[data.name] === qIdx) {
+                    qIdx = (qIdx + 1) % quizList.length;
+                }
+                lastQuizIndexMap[data.name] = qIdx;
+
+                const currentQuiz = quizList[qIdx];
+                document.getElementById('quiz-q').innerText = currentQuiz.q;
+                
+                const shuffledOptions = currentQuiz.options.map((text, idx) => ({
+                    text,
+                    isCorrect: idx === currentQuiz.ans
+                }));
+                for (let i = shuffledOptions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+                }
+
+                const optionsDiv = document.getElementById('quiz-options');
+                optionsDiv.innerHTML = '';
+                shuffledOptions.forEach((optObj) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'quiz-btn'; btn.innerText = optObj.text;
+                    btn.onclick = () => {
+                        if(optObj.isCorrect) {
+                            playSFX('build');
+                            btn.style.background = '#3b82f6'; btn.innerText = '✅ 挑戰完成！';
+                            if(!btn.dataset.solved) {
+                                completedQuizzes++; totalUserPoints += 50; updatePointsUI();
+                                document.getElementById('score-display').innerText = completedQuizzes;
+                                showToast(`解答成功！+50 積分！`); btn.dataset.solved = "true";
+                            }
+                        } else {
+                            playSFX('delete');
+                            btn.style.background = '#ef4444'; btn.innerText = '❌ 再試一次';
+                            setTimeout(() => { btn.style.background = ''; btn.innerText = optObj.text; }, 1000);
+                        }
+                    };
+                    optionsDiv.appendChild(btn);
+                });
+            }
+            document.getElementById(id).classList.add('active');
+        }
+
+        document.getElementById('toggle-btn').addEventListener('click', () => {
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('collapsed');
+            document.getElementById('toggle-btn').innerText = sb.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        document.getElementById('plaza-btn').addEventListener('click', () => {
+            playSFX('bridge');
+            gsap.to(camera.position, { x: 0, y: 42, z: 75, duration: 1.8, ease: "power2.inOut" });
+            gsap.to(controls.target, { x: 0, y: 4, z: 0, duration: 1.8, ease: "power2.inOut" });
+            showToast("🏛️ 已飛往世界奇觀中央廣場！");
+        });
+
+        document.getElementById('open-task-modal-btn').addEventListener('click', () => { playSFX('build'); openModal('task-modal'); });
+        document.getElementById('shop-open-btn').addEventListener('click', () => { playSFX('build'); openModal('shop-modal'); });
+        document.getElementById('dlc-btn').addEventListener('click', () => { playSFX('build'); openModal('task-modal'); });
+
+        let tourActive = false, tourIndex = 0, tourTimeout;
+        document.getElementById('tour-btn').addEventListener('click', () => {
+            playSFX('bridge');
+            if(tourActive) {
+                tourActive = false; clearTimeout(tourTimeout);
+                document.getElementById('tour-btn').innerText = '🌌 開始全宇宙巡航導覽'; return;
+            }
+            tourActive = true; tourIndex = 0;
+            document.getElementById('tour-btn').innerText = '🛑 停止導覽';
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('toggle-btn').innerText = '▶';
+            nextTourStop();
+        });
+
+        function nextTourStop() {
+            if(!tourActive) return;
+            if(tourIndex >= solarData.length) { tourActive = false; document.getElementById('tour-btn').innerText = '🌌 開始全宇宙巡航導覽'; return; }
+            const p = planets[tourIndex];
+            const targetPos = new THREE.Vector3(p.position.x, p.position.y + 10, p.position.z + 45);
+            gsap.to(camera.position, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 2, ease: "power2.inOut" });
+            gsap.to(controls.target, { x: p.position.x, y: p.position.y, z: p.position.z, duration: 2, ease: "power2.inOut" });
+            
+            tourTimeout = setTimeout(() => {
+                openModal('info-modal', p.userData.data);
+                tourTimeout = setTimeout(() => { closeModal('info-modal'); tourIndex++; nextTourStop(); }, 5000);
+            }, 2300);
+        }
+
+        // ==========================================
+        // 15. 主物理渲染迴圈
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            updateKeyboardCameraMovement();
+
+            centralPlazaIsland.position.y = Math.sin(time * 0.6) * 1.0;
+
+            planets.forEach((p, idx) => {
+                p.rotation.y += 0.004;
+                if(p.userData.disk) { p.userData.disk.rotation.z += 0.02; }
+                const island = islands[idx + 1];
+                island.position.y = Math.sin(time * 0.8 + idx) * 1.5 + Math.sin(idx)*2;
+                p.position.y = island.position.y + p.userData.baseOffsetY;
+            });
+
+            bridges.forEach(b => {
+                const geo = b.userData.deckGeo;
+                const pos = geo.attributes.position;
+                const init = b.userData.initialVertices;
+
+                for (let i = 0; i < pos.count; i++) {
+                    const z = init.getY(i);
+                    const softElasticFactor = Math.sin((z / b.userData.distance + 0.5) * Math.PI);
+                    const wave = Math.sin(time * 4 + z * 0.3) * 0.5 * softElasticFactor;
+                    pos.setZ(i, init.getZ(i) + wave);
+                }
+                pos.needsUpdate = true;
+            });
+
+            npcs.forEach((npc, nIdx) => {
+                const surfY = npc.currentIsland.userData.surfaceY || 3.05;
+                const maxR = (npc.currentIsland.userData.radius || CITY_RADIUS) - 5.0;
+
+                if (Math.random() < 0.0014 && npc.parts.bubbleDiv.style.display !== 'block' && !isBattleActive) {
+                    let pool = speechList;
+                    if (npc.role === 'cat') pool = catSpeechList;
+                    else if (npc.role === 'dog') pool = dogSpeechList;
+
+                    const text = pool[Math.floor(Math.random()*pool.length)];
+                    npc.parts.bubbleDiv.innerText = text;
+                    npc.parts.bubbleDiv.style.display = 'block';
+                    setTimeout(() => { npc.parts.bubbleDiv.style.display = 'none'; }, 3500);
+                }
+
+                if (npc.parts.bubbleDiv.style.display === 'block') {
+                    const worldPos = new THREE.Vector3();
+                    npc.mesh.getWorldPosition(worldPos);
+                    const verticalOffset = (npc.isPet ? 1.3 : 2.6) + (nIdx % 3) * 0.38;
+                    worldPos.y += verticalOffset; worldPos.project(camera);
+
+                    if (worldPos.z > 1 || isBattleActive) {
+                        npc.parts.bubbleDiv.style.opacity = '0';
+                    } else {
+                        npc.parts.bubbleDiv.style.opacity = '1';
+                        const x = (worldPos.x * .5 + .5) * window.innerWidth;
+                        const y = (-(worldPos.y * .5) + .5) * window.innerHeight;
+                        npc.parts.bubbleDiv.style.left = `${x}px`;
+                        npc.parts.bubbleDiv.style.top = `${y}px`;
+                    }
+                }
+
+                if (npc.role === 'leader') {
+                    const dist = npc.mesh.position.distanceTo(npc.targetLocal);
+                    if (dist < 0.7) {
+                        npc.targetLocal = getValidLocalPoint(npc.currentIsland, maxR, surfY);
+                    } else {
+                        const dir = new THREE.Vector3().subVectors(npc.targetLocal, npc.mesh.position).normalize();
+                        npc.mesh.position.add(dir.multiplyScalar(npc.speed));
+                        npc.mesh.lookAt(npc.targetLocal.x + npc.mesh.position.x, npc.mesh.position.y, npc.targetLocal.z + npc.mesh.position.z);
+
+                        const walkCycle = Math.sin(time * 12) * 0.7;
+                        npc.parts.leftLeg.rotation.x = walkCycle; npc.parts.rightLeg.rotation.x = -walkCycle;
+                        npc.parts.leftArm.rotation.x = -walkCycle; npc.parts.rightArm.rotation.x = walkCycle;
+                    }
+                } else if (npc.leader) {
+                    const leaderPos = npc.leader.mesh.position;
+                    const slotAngle = (npc.slotIndex || 0) * 1.25;
+                    const desiredPos = new THREE.Vector3(
+                        leaderPos.x + Math.cos(slotAngle) * 2.5,
+                        surfY,
+                        leaderPos.z + Math.sin(slotAngle) * 2.5
+                    );
+                    const distToDesired = npc.mesh.position.distanceTo(desiredPos);
+
+                    if (distToDesired > 0.6) {
+                        const dir = new THREE.Vector3().subVectors(desiredPos, npc.mesh.position).normalize();
+                        npc.mesh.position.add(dir.multiplyScalar(npc.speed));
+                        npc.mesh.lookAt(desiredPos.x, npc.mesh.position.y, desiredPos.z);
+
+                        const walkCycle = Math.sin(time * 13 + nIdx) * 0.65;
+                        if (npc.isPet) {
+                            npc.parts.fl.rotation.x = walkCycle; npc.parts.br.rotation.x = walkCycle;
+                            npc.parts.fr.rotation.x = -walkCycle; npc.parts.bl.rotation.x = -walkCycle;
+                            npc.parts.tail.rotation.y = Math.sin(time * 15) * 0.4;
+                        } else {
+                            npc.parts.leftLeg.rotation.x = walkCycle; npc.parts.rightLeg.rotation.x = -walkCycle;
+                            npc.parts.leftArm.rotation.x = -walkCycle; npc.parts.rightArm.rotation.x = walkCycle;
+                        }
+                    }
+                }
+
+                const minSeparation = 1.45;
+                for (let j = 0; j < npcs.length; j++) {
+                    if (nIdx === j) continue;
+                    const other = npcs[j];
+                    if (npc.currentIsland !== other.currentIsland) continue;
+
+                    const dx = npc.mesh.position.x - other.mesh.position.x;
+                    const dz = npc.mesh.position.z - other.mesh.position.z;
+                    const distSq = dx * dx + dz * dz;
+
+                    if (distSq > 0.0001 && distSq < minSeparation * minSeparation) {
+                        const dist = Math.sqrt(distSq);
+                        const pushStrength = (minSeparation - dist) * 0.08;
+                        npc.mesh.position.x += (dx / dist) * pushStrength;
+                        npc.mesh.position.z += (dz / dist) * pushStrength;
+                    }
+                }
+
+                npc.mesh.position.y = surfY;
+                const rDist = Math.hypot(npc.mesh.position.x, npc.mesh.position.z);
+                if (rDist > maxR + 2.5) {
+                    npc.mesh.position.x *= (maxR + 2.5) / rDist;
+                    npc.mesh.position.z *= (maxR + 2.5) / rDist;
+                }
+            });
+
+            // 巨型 DAPTOPER（有感筆電）動畫與氣泡位置更新
+            mysteryCharacters.forEach(mc => {
+                mc.mesh.rotation.y = Math.sin(time * 0.8) * 0.35;
+                mc.parts.head.rotation.y = Math.sin(time * 1.8) * 0.25;
+                mc.ring.rotation.z += 0.025;
+
+                if (mc.parts.bubbleDiv.style.display === 'block') {
+                    const worldPos = new THREE.Vector3();
+                    mc.mesh.getWorldPosition(worldPos);
+                    worldPos.y += 15.2;
+                    worldPos.project(camera);
+
+                    if (worldPos.z > 1) {
+                        mc.parts.bubbleDiv.style.opacity = '0';
+                    } else {
+                        mc.parts.bubbleDiv.style.opacity = '1';
+                        mc.parts.bubbleDiv.style.left = `${(worldPos.x * .5 + .5) * window.innerWidth}px`;
+                        mc.parts.bubbleDiv.style.top = `${(-(worldPos.y * .5) + .5) * window.innerHeight}px`;
+                    }
+                }
+            });
+
+            // 玩家量子防護罩跟隨攝影機前方
+            if (playerShieldMesh && playerShieldMesh.visible) {
+                playerShieldMesh.position.copy(camera.position).add(new THREE.Vector3(0, -1, -6));
+                playerShieldMesh.rotation.y += 0.03;
+            }
+
+            // 戰鬥光束與光環動畫更新
+            for (let i = battleEffects.length - 1; i >= 0; i--) {
+                const ef = battleEffects[i];
+                ef.life -= 0.04;
+                ef.mesh.material.opacity = Math.max(0, ef.life);
+                if (ef.grow) {
+                    ef.mesh.scale.addScalar(0.55);
+                }
+                if (ef.life <= 0) {
+                    scene.remove(ef.mesh);
+                    battleEffects.splice(i, 1);
+                }
+            }
+
+            // 隨機隕石墜落
+            for (let i = activeMeteors.length - 1; i >= 0; i--) {
+                const m = activeMeteors[i];
+                const dir = new THREE.Vector3().subVectors(m.targetPos, m.mesh.position);
+                const dist = dir.length();
+
+                if (dist <= m.speed) {
+                    createImpactShockwave(m.targetPos);
+                    showToast(`💥 隕石撞擊了「${m.planetName}」！`);
+                    scene.remove(m.mesh);
+                    activeMeteors.splice(i, 1);
+                } else {
+                    dir.normalize();
+                    m.mesh.position.add(dir.multiplyScalar(m.speed));
+                    m.mesh.children[0].rotation.x += 0.15;
+                    m.mesh.children[0].rotation.y += 0.12;
+                }
+            }
+
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                sw.life -= 0.025;
+                sw.mesh.scale.addScalar(0.45);
+                sw.mesh.material.opacity = Math.max(0, sw.life);
+                if (sw.life <= 0) {
+                    scene.remove(sw.mesh);
+                    shockwaves.splice(i, 1);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
